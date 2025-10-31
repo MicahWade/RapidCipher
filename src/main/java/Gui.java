@@ -1,4 +1,5 @@
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -12,40 +13,44 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
-import javafx.stage.StageStyle; // Import for transparent stage
+import javafx.stage.StageStyle;
 
-// --- Added Ikonli Imports ---
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Base64;
+import java.util.Optional;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+
 public class Gui extends Application {
     private static Gui instance;
     private Database database;
     private ObservableList<LoginEntry> loginData;
 
-    // --- UI Components ---
     private ListView<LoginEntry> loginListView;
-    private VBox detailsPane; // The right-hand pane
-    private VBox addForm; // The form for adding new logins
-    private VBox currentDetailsForm; // The form for showing details
+    private VBox detailsPane;
+    private VBox addForm;
+    private VBox currentDetailsForm;
     private Label statusLabel;
     private StackPane root;
     private VBox mainLayout;
     private SplitPane splitPane;
     private HBox topBar;
     private ToggleButton themeToggle;
-    private FontIcon themeIcon; // --- Added for Ikonli ---
+    private FontIcon themeIcon;
     private Label titleLabel;
     private Button minimizeButton;
     private Button closeButton;
 
-    // --- Theme State ---
     private boolean isDarkMode = false;
     
-    // --- Theme Variables (will be updated) ---
     private String currentBaseColor;
     private String currentBaseSemiTransparent;
     private String currentDarkShadowColor;
@@ -57,20 +62,23 @@ public class Gui extends Application {
     private String currentErrorColor = "#d93025";
     private String currentSuccessColor = "#1e8e3e";
 
-    // --- Theme Effects (will be updated) ---
     private DropShadow lightOuterShadow;
     private InnerShadow lightInnerShadow;
     
-    // --- Window Drag ---
     private double xOffset = 0;
     private double yOffset = 0;
+    
+    private static final String DB_DIR_PATH = System.getProperty("user.home") + "/Documents/RapidCipher";
+    private static final Path SALT_FILE = Paths.get(DB_DIR_PATH, "salt.bin");
+    private static final Path KEY_CHECK_FILE = Paths.get(DB_DIR_PATH, "key_check.bin");
+    private static final String KEY_CHECK_STRING = "RapidCipher-OK";
+
 
     public Gui() {
         instance = this;
         try {
             database = Database.getInstance();
             loginData = FXCollections.observableArrayList();
-            loadDataFromDatabase();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -80,29 +88,25 @@ public class Gui extends Application {
         return instance;
     }
 
-    /**
-     * Sets the current theme variables and re-creates effects based on the isDarkMode flag.
-     */
     private void updateThemeStyles() {
         if (isDarkMode) {
-            currentBaseColor = "#383e46"; // Dark grey
-            currentBaseSemiTransparent = "rgba(56, 62, 70, 0.85)"; // Semi-transparent dark
-            currentDarkShadowColor = "#2a2e34"; // Darker shadow
-            currentLightShadowColor = "#464e58"; // Lighter shadow
-            currentControlInnerBase = "#32383e"; // Slightly lighter than base
-            currentTextColor = "#e0e5ec"; // Light text
-            currentMutedTextColor = "#a3b1c6"; // Muted light text
+            currentBaseColor = "#383e46";
+            currentBaseSemiTransparent = "rgba(56, 62, 70, 0.85)";
+            currentDarkShadowColor = "#2a2e34";
+            currentLightShadowColor = "#464e58";
+            currentControlInnerBase = "#32383e";
+            currentTextColor = "#e0e5ec";
+            currentMutedTextColor = "#a3b1c6";
         } else {
-            currentBaseColor = "#e0e5ec"; // Light, off-white
-            currentBaseSemiTransparent = "rgba(224, 229, 236, 0.85)"; // Semi-transparent light
-            currentDarkShadowColor = "#a3b1c6"; // Darker shadow
-            currentLightShadowColor = "#ffffff"; // Lighter shadow
-            currentControlInnerBase = "#E3E9F0"; // Slightly different for controls
-            currentTextColor = "#333333"; // Dark text
-            currentMutedTextColor = "#555555"; // Muted dark text
+            currentBaseColor = "#e0e5ec";
+            currentBaseSemiTransparent = "rgba(224, 229, 236, 0.85)";
+            currentDarkShadowColor = "#a3b1c6";
+            currentLightShadowColor = "#ffffff";
+            currentControlInnerBase = "#E3E9F0";
+            currentTextColor = "#333333";
+            currentMutedTextColor = "#555555";
         }
 
-        // --- Re-create effects with new colors ---
         DropShadow darkOuterShadow = new DropShadow(10, 5, 5, Color.web(currentDarkShadowColor));
         darkOuterShadow.setOffsetX(5);
         darkOuterShadow.setOffsetY(5);
@@ -110,7 +114,7 @@ public class Gui extends Application {
         lightOuterShadow = new DropShadow(10, 5, 5, Color.web(currentLightShadowColor));
         lightOuterShadow.setOffsetX(-5);
         lightOuterShadow.setOffsetY(-5);
-        lightOuterShadow.setInput(darkOuterShadow); // Chain shadows
+        lightOuterShadow.setInput(darkOuterShadow);
         
         InnerShadow darkInnerShadow = new InnerShadow(10, 2, 2, Color.web(currentDarkShadowColor));
         darkInnerShadow.setOffsetX(2);
@@ -119,17 +123,12 @@ public class Gui extends Application {
         lightInnerShadow = new InnerShadow(10, 2, 2, Color.web(currentLightShadowColor));
         lightInnerShadow.setOffsetX(-2);
         lightInnerShadow.setOffsetY(-2);
-        lightInnerShadow.setInput(darkInnerShadow); // Chain shadows
+        lightInnerShadow.setInput(darkInnerShadow);
     }
 
-    /**
-     * Re-applies all styles to all components. Called on theme toggle.
-     */
     private void updateAllStyles() {
-        // 1. Update all color and effect variables
         updateThemeStyles();
 
-        // 2. Re-style all static containers
         root.setStyle("-fx-background-color: " + currentBaseSemiTransparent + "; -fx-background-radius: 20;");
         mainLayout.setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 15;");
         mainLayout.setEffect(lightOuterShadow);
@@ -140,49 +139,58 @@ public class Gui extends Application {
         
         statusLabel.setStyle("-fx-text-fill: " + currentMutedTextColor + ";");
         
-        // 3. Style TopBar components
         titleLabel.setStyle("-fx-text-fill: " + currentMutedTextColor + ";");
         styleThemeToggle(themeToggle);
         styleWindowButton(minimizeButton, false);
         styleWindowButton(closeButton, true);
 
-        // 4. Re-style dynamic components (by rebuilding them)
         if (loginListView.getSelectionModel().getSelectedItem() == null) {
-            addForm = buildAddForm(); // Re-build form with new styles
+            addForm = buildAddForm();
             detailsPane.getChildren().setAll(addForm);
         } else {
-            currentDetailsForm = buildDetailsForm(loginListView.getSelectionModel().getSelectedItem()); // Re-build form
+            currentDetailsForm = buildDetailsForm(loginListView.getSelectionModel().getSelectedItem());
             detailsPane.getChildren().setAll(currentDetailsForm);
         }
 
-        // 5. Force the ListView to redraw its cells
         loginListView.refresh();
     }
 
     @Override
     public void start(Stage primaryStage) {
-        primaryStage.setTitle("Password Manager");
-        // Make the stage transparent
-        primaryStage.initStyle(StageStyle.TRANSPARENT);
-
-        // Initialize the theme colors *before* building any components that use them.
+        
+        // --- FIX: Initialize theme styles *before* showing any dialogs ---
         updateThemeStyles();
 
-        // --- Left Pane: Login List ---
+        boolean proceed = false;
+        try {
+            proceed = showMasterPasswordPrompt();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showErrorAlert("Fatal Error", "Failed to initialize encryption settings.\n" + e.getMessage());
+        }
+        
+        if (!proceed) {
+            Platform.exit();
+            return;
+        }
+
+        primaryStage.setTitle("Password Manager");
+        primaryStage.initStyle(StageStyle.TRANSPARENT);
+        
+        loadDataFromDatabase();
+
         loginListView = new ListView<>();
         loginListView.setItems(loginData);
         loginListView.setCellFactory(lv -> new LoginListCell());
         loginListView.setPrefWidth(280);
         loginListView.setMinWidth(200);
 
-        // --- Right Pane: Details View ---
         detailsPane = new VBox(15);
         detailsPane.setPadding(new Insets(20));
         
         addForm = buildAddForm();
         detailsPane.getChildren().add(addForm);
 
-        // --- Selection Listener ---
         loginListView.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
             if (newSelection != null) {
                 currentDetailsForm = buildDetailsForm(newSelection);
@@ -192,19 +200,16 @@ public class Gui extends Application {
             }
         });
 
-        // --- Top Bar (Title + Theme Toggle + Window Controls) ---
         titleLabel = new Label("RapidCipher");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         
-        // --- MODIFIED: Use FontIcon for theme toggle ---
-        themeIcon = new FontIcon(); // Create the icon holder
+        themeIcon = new FontIcon();
         themeToggle = new ToggleButton();
-        themeToggle.setGraphic(themeIcon); // Set the icon as the graphic
+        themeToggle.setGraphic(themeIcon);
         themeToggle.setOnAction(e -> {
             isDarkMode = themeToggle.isSelected();
-            updateAllStyles(); // This will handle the icon and style change
+            updateAllStyles();
         });
-        // --- END MODIFICATION ---
 
         minimizeButton = new Button(" _ ");
         minimizeButton.setOnAction(e -> primaryStage.setIconified(true));
@@ -218,7 +223,6 @@ public class Gui extends Application {
         topBar.setPadding(new Insets(5));
         topBar.setAlignment(Pos.CENTER);
 
-        // --- Add window dragging ---
         topBar.setOnMousePressed(event -> {
             xOffset = event.getSceneX();
             yOffset = event.getSceneY();
@@ -229,43 +233,184 @@ public class Gui extends Application {
             primaryStage.setY(event.getScreenY() - yOffset);
         });
 
-        // --- Main Layout: SplitPane ---
         splitPane = new SplitPane(loginListView, detailsPane);
         splitPane.setDividerPositions(0.35);
         VBox.setVgrow(splitPane, Priority.ALWAYS);
 
-        // --- Status Label ---
         statusLabel = new Label("Welcome to RapidCipher!");
         statusLabel.setPadding(new Insets(0, 0, 0, 10));
 
-        // --- Main Layout Container (VBox) ---
         mainLayout = new VBox(15);
         mainLayout.setPadding(new Insets(10));
         mainLayout.getChildren().addAll(topBar, splitPane, statusLabel);
         mainLayout.setMaxWidth(1000);
         mainLayout.setMaxHeight(700);
 
-        // --- Root Pane: StackPane (for centering and transparency) ---
         root = new StackPane(mainLayout);
         root.setPadding(new Insets(20));
         
-        // --- Scene Setup ---
         Scene scene = new Scene(root, 1000, 700);
-        scene.setFill(Color.TRANSPARENT); // Make scene background transparent
+        scene.setFill(Color.TRANSPARENT);
                 
         primaryStage.setScene(scene);
         primaryStage.setMinWidth(800);
         primaryStage.setMinHeight(600);
         
-        // --- Initial Style Update ---
-        updateAllStyles(); // Apply initial theme
+        updateAllStyles();
         
         primaryStage.show();
     }
+    
+    private boolean showMasterPasswordPrompt() throws Exception {
+        Files.createDirectories(Paths.get(DB_DIR_PATH));
 
-    /**
-     * Builds the VBox containing the "Add Login" form using current theme.
-     */
+        if (Files.exists(SALT_FILE) && Files.exists(KEY_CHECK_FILE)) {
+            return showLoginPrompt();
+        } else {
+            return showFirstRunPrompt();
+        }
+    }
+
+    private boolean showLoginPrompt() throws Exception {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.initStyle(StageStyle.TRANSPARENT);
+        dialog.getDialogPane().setStyle("-fx-background-color: " + currentBaseSemiTransparent + "; -fx-background-radius: 15;");
+        dialog.getDialogPane().setEffect(lightOuterShadow);
+
+        dialog.setTitle("Login");
+        dialog.setHeaderText("Enter your master password for RapidCipher.");
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        Label label = new Label("Password:");
+        label.setStyle("-fx-text-fill: " + currentTextColor + ";");
+        
+        PasswordField pwd = createStyledPasswordField("");
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.add(label, 0, 0);
+        grid.add(pwd, 1, 0);
+        dialog.getDialogPane().setContent(grid);
+
+        Platform.runLater(pwd::requestFocus);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == ButtonType.OK) {
+                return pwd.getText();
+            }
+            return null;
+        });
+
+        Optional<String> result = dialog.showAndWait();
+        if (result.isPresent() && !result.get().isEmpty()) {
+            String password = result.get();
+            try {
+                byte[] salt = Files.readAllBytes(SALT_FILE);
+                SecretKey key = Encryption.getSecretKey(password, salt);
+                
+                String[] checkData = new String(Files.readAllBytes(KEY_CHECK_FILE), "UTF-8").split(":");
+                byte[] iv = Base64.getDecoder().decode(checkData[0]);
+                String encryptedCheck = checkData[1];
+                
+                String decrypted = Encryption.decrypt(encryptedCheck, key, new IvParameterSpec(iv));
+
+                if (KEY_CHECK_STRING.equals(decrypted)) {
+                    MasterPassword.setKey(key);
+                    return true;
+                } else {
+                    showErrorAlert("Login Failed", "Incorrect password.");
+                    return false;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                showErrorAlert("Login Error", "Failed to decrypt key data. Is the password correct?");
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private boolean showFirstRunPrompt() throws Exception {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.initStyle(StageStyle.TRANSPARENT);
+        dialog.getDialogPane().setStyle("-fx-background-color: " + currentBaseSemiTransparent + "; -fx-background-radius: 15;");
+        dialog.getDialogPane().setEffect(lightOuterShadow);
+        
+        dialog.setTitle("Welcome to RapidCipher");
+        dialog.setHeaderText("Please create a new master password.");
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        Label label1 = new Label("Password:");
+        label1.setStyle("-fx-text-fill: " + currentTextColor + ";");
+        Label label2 = new Label("Confirm:");
+        label2.setStyle("-fx-text-fill: " + currentTextColor + ";");
+
+        PasswordField pwd1 = createStyledPasswordField("");
+        PasswordField pwd2 = createStyledPasswordField("");
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.add(label1, 0, 0);
+        grid.add(pwd1, 1, 0);
+        grid.add(label2, 0, 1);
+        grid.add(pwd2, 1, 1);
+        dialog.getDialogPane().setContent(grid);
+
+        Platform.runLater(pwd1::requestFocus);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == ButtonType.OK) {
+                String p1 = pwd1.getText();
+                if (p1.isEmpty() || !p1.equals(pwd2.getText())) {
+                    showErrorAlert("Password Mismatch", "Passwords do not match or are empty.");
+                    return null;
+                }
+                return p1;
+            }
+            return "CANCEL";
+        });
+
+        String password = null;
+        while (password == null) {
+            Optional<String> result = dialog.showAndWait();
+            if (!result.isPresent() || "CANCEL".equals(result.get())) {
+                return false;
+            }
+            password = result.get();
+        }
+
+        byte[] salt = Encryption.generateSalt();
+        Files.write(SALT_FILE, salt);
+
+        SecretKey key = Encryption.getSecretKey(password, salt);
+
+        byte[] iv = Encryption.generateIv();
+        String encryptedCheck = Encryption.encrypt(KEY_CHECK_STRING, key, new IvParameterSpec(iv));
+        
+        String checkData = Base64.getEncoder().encodeToString(iv) + ":" + encryptedCheck;
+        Files.write(KEY_CHECK_FILE, checkData.getBytes("UTF-8"));
+
+        MasterPassword.setKey(key);
+        return true;
+    }
+    
+    private void showErrorAlert(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.initStyle(StageStyle.TRANSPARENT);
+        alert.getDialogPane().setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 15;");
+        alert.getDialogPane().setEffect(lightOuterShadow);
+        
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        
+        alert.getDialogPane().lookup(".content.label").setStyle("-fx-text-fill: " + currentTextColor + ";");
+        
+        alert.showAndWait();
+    }
+    
     private VBox buildAddForm() {
         VBox form = new VBox(15);
         form.setPadding(new Insets(10));
@@ -289,9 +434,6 @@ public class Gui extends Application {
         return form;
     }
 
-    /**
-     * Builds the VBox containing the details of a selected login using current theme.
-     */
     private VBox buildDetailsForm(LoginEntry login) {
         VBox form = new VBox(15);
         form.setPadding(new Insets(10));
@@ -318,7 +460,7 @@ public class Gui extends Application {
 
         TextArea notesDisplay = new TextArea(login.getNotes());
         notesDisplay.setPromptText("Notes");
-        styleControl(notesDisplay); // Use common styling
+        styleControl(notesDisplay);
         notesDisplay.setEditable(false);
         notesDisplay.setWrapText(true);
         notesDisplay.setPrefHeight(80);
@@ -329,7 +471,7 @@ public class Gui extends Application {
 
         Button newLoginButton = createStyledButton("Add New Login");
         newLoginButton.setOnAction(e -> {
-            loginListView.getSelectionModel().clearSelection(); // Triggers listener
+            loginListView.getSelectionModel().clearSelection();
         });
         
         HBox buttonBar = new HBox(10, deleteButton, newLoginButton);
@@ -337,17 +479,25 @@ public class Gui extends Application {
         return form;
     }
 
-    // --- Data Logic ---
-
     private void loadDataFromDatabase() {
         loginData.clear();
         try {
             ResultSet rs = database.searchLogins("");
             while (rs != null && rs.next()) {
+                
+                String encryptedPass = rs.getString("password");
+                String plainTextPass;
+                try {
+                    plainTextPass = Encryption.decryptWithIV(encryptedPass, MasterPassword.getKey());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    plainTextPass = "!!DECRYPT_ERROR!!";
+                }
+
                 loginData.add(new LoginEntry(
                         rs.getString("name"),
                         rs.getString("username"),
-                        rs.getString("password"),
+                        plainTextPass,
                         rs.getString("url"),
                         rs.getString("notes")
                 ));
@@ -371,11 +521,23 @@ public class Gui extends Application {
             return;
         }
 
-        boolean success = database.createLogin(name, username, password, url, notes);
+        String encryptedPass;
+        try {
+            encryptedPass = Encryption.encryptWithIV(password, MasterPassword.getKey());
+        } catch (Exception e) {
+            e.printStackTrace();
+            statusLabel.setText("Failed to encrypt password.");
+            statusLabel.setStyle("-fx-text-fill: " + currentErrorColor + ";");
+            return;
+        }
+
+        boolean success = database.createLogin(name, username, encryptedPass, url, notes);
+        
         if (success) {
             statusLabel.setText("Login added successfully.");
             statusLabel.setStyle("-fx-text-fill: " + currentSuccessColor + ";");
-            LoginEntry newLogin = new LoginEntry(name, username, password, url, notes);
+            
+            LoginEntry newLogin = new LoginEntry(name, username, password, url, notes); 
             loginData.add(newLogin);
             loginListView.getSelectionModel().select(newLogin);
             
@@ -396,14 +558,12 @@ public class Gui extends Application {
             statusLabel.setText("Login deleted successfully.");
             statusLabel.setStyle("-fx-text-fill: " + currentSuccessColor + ";");
             loginData.remove(login);
-            loginListView.getSelectionModel().clearSelection(); // Show add form
+            loginListView.getSelectionModel().clearSelection();
         } else {
             statusLabel.setText("Failed to delete login.");
             statusLabel.setStyle("-fx-text-fill: " + currentErrorColor + ";");
         }
     }
-
-    // --- Helper Methods for Styling (Now Theme-Aware) ---
 
     private TextField createStyledTextField(String prompt) {
         TextField field = new TextField();
@@ -423,16 +583,16 @@ public class Gui extends Application {
         Button button = new Button(text);
         String buttonStyle = "-fx-background-color: " + currentBaseColor + "; -fx-text-fill: " + currentTextColor + "; -fx-background-radius: 10;";
         button.setStyle(buttonStyle);
-        button.setEffect(lightOuterShadow); // Raised look
+        button.setEffect(lightOuterShadow);
         button.setPrefHeight(35);
 
         button.setOnMousePressed(e -> {
             button.setStyle(buttonStyle + "-fx-background-color: " + currentControlInnerBase + ";");
-            button.setEffect(lightInnerShadow); // Pressed look
+            button.setEffect(lightInnerShadow);
         });
         button.setOnMouseReleased(e -> {
             button.setStyle(buttonStyle);
-            button.setEffect(lightOuterShadow); // Back to raised
+            button.setEffect(lightOuterShadow);
         });
         return button;
     }
@@ -468,9 +628,6 @@ public class Gui extends Application {
         });
     }
 
-    /**
-     * Applies theme-aware style to the window buttons (min, close).
-     */
     private void styleWindowButton(Button button, boolean isCloseButton) {
         String baseStyle = "-fx-background-color: transparent; -fx-text-fill: " + currentMutedTextColor + "; -fx-font-weight: bold; -fx-font-size: 14; -fx-background-radius: 5;";
         
@@ -483,37 +640,27 @@ public class Gui extends Application {
         button.setOnMouseExited(e -> button.setStyle(baseStyle));
     }
 
-    /**
-     * Applies theme-aware Neumorphic style to the toggle button.
-     */
-    // --- MODIFIED: Switched from setText to setIconCode and setIconColor ---
     private void styleThemeToggle(ToggleButton toggle) {
-        // 1. Update the icon code and color
         if (isDarkMode) {
-            themeIcon.setIconCode(MaterialDesign.MDI_WEATHER_SUNNY); // Sun icon
+            themeIcon.setIconCode(MaterialDesign.MDI_WEATHER_SUNNY);
         } else {
-            themeIcon.setIconCode(MaterialDesign.MDI_WEATHER_NIGHT); // Moon icon
+            themeIcon.setIconCode(MaterialDesign.MDI_WEATHER_NIGHT);
         }
         themeIcon.setIconColor(Color.web(currentTextColor));
         themeIcon.setIconSize(16);
 
-        // 2. Style the button's background (removed -fx-text-fill and font size)
         String style = "-fx-background-color: " + currentBaseColor + "; " +
                        "-fx-background-radius: 10; " +
-                       "-fx-background-insets: 0;"; // This line fixes the error
+                       "-fx-background-insets: 0;";
                        
         toggle.setStyle(style);
         
-        // 3. Set the effect
         if (toggle.isSelected()) {
             toggle.setEffect(lightInnerShadow);
         } else {
             toggle.setEffect(lightOuterShadow);
         }
     }
-    // --- END MODIFICATION ---
-    
-    // --- Inner Class for ListView Cell (Now Theme-Aware) ---
     
     class LoginListCell extends ListCell<LoginEntry> {
         private VBox content;
@@ -561,8 +708,6 @@ public class Gui extends Application {
         }
     }
 
-
-    // --- Helper class to represent login data ---
     public static class LoginEntry {
         private final String name;
         private final String username;
