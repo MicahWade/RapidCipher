@@ -243,7 +243,7 @@ public class Gui extends Application {
         // --- Scene Setup ---
         Scene scene = new Scene(root, 1000, 700);
         scene.setFill(Color.TRANSPARENT); // Make scene background transparent
-        
+                
         primaryStage.setScene(scene);
         primaryStage.setMinWidth(800);
         primaryStage.setMinHeight(600);
@@ -481,9 +481,10 @@ public class Gui extends Application {
         toggle.setText(isDarkMode ? "☀️" : "🌙");
         toggle.setFont(Font.font(16));
         
-        // --- *** FIX IS HERE *** ---
-        // Adding -fx-background-insets: 0; stops the default stylesheet from
-        // conflicting and causing the ClassCastException.
+        // --- *** This is the complete fix *** ---
+        // We set all properties here in the Java code.
+        // This string includes the background color, radius, text color,
+        // and the -fx-background-insets which prevents the crash.
         String style = "-fx-background-color: " + currentBaseColor + "; " +
                        "-fx-background-radius: 10; " +
                        "-fx-text-fill: " + currentTextColor + "; " +
@@ -498,7 +499,6 @@ public class Gui extends Application {
             toggle.setEffect(lightOuterShadow);
         }
     }
-
     // --- Inner Class for ListView Cell (Now Theme-Aware) ---
     
     class LoginListCell extends ListCell<LoginEntry> {
