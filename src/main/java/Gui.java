@@ -14,6 +14,10 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle; // Import for transparent stage
 
+// --- Added Ikonli Imports ---
+import org.kordamp.ikonli.javafx.FontIcon;
+import org.kordamp.ikonli.materialdesign.MaterialDesign;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -33,6 +37,7 @@ public class Gui extends Application {
     private SplitPane splitPane;
     private HBox topBar;
     private ToggleButton themeToggle;
+    private FontIcon themeIcon; // --- Added for Ikonli ---
     private Label titleLabel;
     private Button minimizeButton;
     private Button closeButton;
@@ -191,11 +196,15 @@ public class Gui extends Application {
         titleLabel = new Label("RapidCipher");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         
-        themeToggle = new ToggleButton("🌙");
+        // --- MODIFIED: Use FontIcon for theme toggle ---
+        themeIcon = new FontIcon(); // Create the icon holder
+        themeToggle = new ToggleButton();
+        themeToggle.setGraphic(themeIcon); // Set the icon as the graphic
         themeToggle.setOnAction(e -> {
             isDarkMode = themeToggle.isSelected();
-            updateAllStyles(); // This will handle the text and style change
+            updateAllStyles(); // This will handle the icon and style change
         });
+        // --- END MODIFICATION ---
 
         minimizeButton = new Button(" _ ");
         minimizeButton.setOnAction(e -> primaryStage.setIconified(true));
@@ -477,28 +486,33 @@ public class Gui extends Application {
     /**
      * Applies theme-aware Neumorphic style to the toggle button.
      */
+    // --- MODIFIED: Switched from setText to setIconCode and setIconColor ---
     private void styleThemeToggle(ToggleButton toggle) {
-        toggle.setText(isDarkMode ? "☀️" : "🌙");
-        toggle.setFont(Font.font(16));
-        
-        // --- *** This is the complete fix *** ---
-        // We set all properties here in the Java code.
-        // This string includes the background color, radius, text color,
-        // and the -fx-background-insets which prevents the crash.
+        // 1. Update the icon code and color
+        if (isDarkMode) {
+            themeIcon.setIconCode(MaterialDesign.MDI_WEATHER_SUNNY); // Sun icon
+        } else {
+            themeIcon.setIconCode(MaterialDesign.MDI_WEATHER_NIGHT); // Moon icon
+        }
+        themeIcon.setIconColor(Color.web(currentTextColor));
+        themeIcon.setIconSize(16);
+
+        // 2. Style the button's background (removed -fx-text-fill and font size)
         String style = "-fx-background-color: " + currentBaseColor + "; " +
                        "-fx-background-radius: 10; " +
-                       "-fx-text-fill: " + currentTextColor + "; " +
                        "-fx-background-insets: 0;"; // This line fixes the error
-        // --- *** END FIX *** ---
                        
         toggle.setStyle(style);
         
+        // 3. Set the effect
         if (toggle.isSelected()) {
             toggle.setEffect(lightInnerShadow);
         } else {
             toggle.setEffect(lightOuterShadow);
         }
     }
+    // --- END MODIFICATION ---
+    
     // --- Inner Class for ListView Cell (Now Theme-Aware) ---
     
     class LoginListCell extends ListCell<LoginEntry> {
