@@ -542,18 +542,52 @@ public class MainGui extends Application {
         title.setFont(Font.font("System", FontWeight.BOLD, 18));
         title.setStyle("-fx-text-fill: " + currentTextColor + ";");
 
+        // --- Name Row (no copy button) ---
         TextField nameDisplay = createStyledTextField("Name");
         nameDisplay.setText(login.getName());
         nameDisplay.setEditable(false);
 
+        // --- Username Row (with copy button) ---
         TextField userDisplay = createStyledTextField("Username");
         userDisplay.setText(login.getUsername());
         userDisplay.setEditable(false);
         
+        Button copyUserButton = createCopyButton();
+        copyUserButton.setOnAction(e -> {
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+            ClipboardContent content = new ClipboardContent();
+            content.putString(login.getUsername());
+            clipboard.setContent(content);
+            statusLabel.setText("Username copied to clipboard.");
+            statusLabel.setStyle("-fx-text-fill: " + currentSuccessColor + ";");
+        });
+        
+        // Use HBox to place text field and button on one line
+        HBox userBox = new HBox(10, userDisplay, copyUserButton);
+        userBox.setAlignment(Pos.CENTER);
+        HBox.setHgrow(userDisplay, Priority.ALWAYS); // Make text field fill space
+
+        // --- Password Row (with copy button) ---
         TextField passDisplay = createStyledTextField("Password");
         passDisplay.setText("************");
         passDisplay.setEditable(false);
+        
+        Button copyPassButton = createCopyButton();
+        copyPassButton.setOnAction(e -> {
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+            ClipboardContent content = new ClipboardContent();
+            content.putString(login.getPassword()); // Get the REAL password
+            clipboard.setContent(content);
+            statusLabel.setText("Password copied to clipboard.");
+            statusLabel.setStyle("-fx-text-fill: " + currentSuccessColor + ";");
+        });
+        
+        // Use HBox for password row
+        HBox passBox = new HBox(10, passDisplay, copyPassButton);
+        passBox.setAlignment(Pos.CENTER);
+        HBox.setHgrow(passDisplay, Priority.ALWAYS); // Make text field fill space
 
+        // --- Other Fields ---
         TextField urlDisplay = createStyledTextField("URL");
         urlDisplay.setText(login.getUrl());
         urlDisplay.setEditable(false);
@@ -565,6 +599,7 @@ public class MainGui extends Application {
         notesDisplay.setWrapText(true);
         notesDisplay.setPrefHeight(80);
 
+        // --- Button Bar ---
         Button deleteButton = createStyledButton("Delete");
         deleteButton.setStyle(deleteButton.getStyle() + "-fx-text-fill: " + currentErrorColor + ";");
         deleteButton.setOnAction(e -> deleteLogin(login));
@@ -575,10 +610,12 @@ public class MainGui extends Application {
         });
         
         HBox buttonBar = new HBox(10, deleteButton, newLoginButton);
-        form.getChildren().addAll(title, nameDisplay, userDisplay, passDisplay, urlDisplay, notesDisplay, buttonBar);
+        
+        // Add all controls to the form
+        form.getChildren().addAll(title, nameDisplay, userBox, passBox, urlDisplay, notesDisplay, buttonBar);
         return form;
     }
-
+    
     private void loadDataFromDatabase() {
         loginData.clear();
         try {
@@ -806,6 +843,36 @@ public class MainGui extends Application {
                 setGraphic(content);
             }
         }
+    }
+    
+    private Button createCopyButton() {
+        Button copyButton = new Button();
+        FontIcon copyIcon = new FontIcon(MaterialDesign.MDI_CONTENT_COPY);
+        copyIcon.setIconSize(16);
+        copyIcon.setIconColor(Color.web(currentMutedTextColor));
+        copyButton.setGraphic(copyIcon);
+
+        // Style to match text fields
+        String style = "-fx-background-color: " + currentBaseColor + "; " +
+                       "-fx-background-radius: 10; " +
+                       "-fx-background-insets: 0;";
+        copyButton.setStyle(style);
+        copyButton.setEffect(lightOuterShadow);
+        
+        // Set fixed size to match text field height
+        copyButton.setPrefSize(35, 35);
+        copyButton.setMinSize(35, 35);
+
+        copyButton.setOnMousePressed(e -> {
+            copyButton.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";");
+            copyButton.setEffect(lightInnerShadow);
+        });
+        copyButton.setOnMouseReleased(e -> {
+            copyButton.setStyle(style);
+            copyButton.setEffect(lightOuterShadow);
+        });
+
+        return copyButton;
     }
 
     public static class LoginEntry {
