@@ -33,7 +33,7 @@ RapidCipher is a secure, local-first password manager built with JavaFX. It prov
 ### **Running from Source**
 
 1. **Clone the repository:**  
-   git clone \[(https://github.com/MicahWade/RapidCipher)\]  
+   git clone https://github.com/MicahWade/RapidCipher  
    cd rapidcipher
 
 2. **Compile and build the project:**  
