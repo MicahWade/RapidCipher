@@ -21,7 +21,11 @@ public class Gui extends Application {
     private PasswordField passwordField;
     private Label statusLabel;
 
-    private Gui() {
+    public Gui() {
+        // Set the static instance to this object, which is the
+        // single instance created and managed by the JavaFX framework.
+        instance = this;
+        
         try {
             database = Database.getInstance();
             loginData = FXCollections.observableArrayList();
@@ -32,9 +36,6 @@ public class Gui extends Application {
     }
 
     public static synchronized Gui getInstance() {
-        if (instance == null) {
-            instance = new Gui();
-        }
         return instance;
     }
 
