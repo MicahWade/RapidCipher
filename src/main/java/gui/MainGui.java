@@ -744,12 +744,21 @@ public class MainGui extends Application {
         lightInnerShadow.setOffsetY(-2);
         lightInnerShadow.setInput(darkInnerShadow);
 
-        control.setStyle(
-            "-fx-background-color: " + currentControlInnerBase + ";" +
-            "-fx-background-radius: 10;" +
-            "-fx-text-fill: " + currentTextColor + ";"
-        );
+        String baseStyle = "-fx-background-color: " + currentControlInnerBase + ";" +
+                         "-fx-background-radius: 10;" +
+                         "-fx-text-fill: " + currentTextColor + ";";
+
+        // --- THIS IS THE FIX ---
+        // For TextArea, we must also set the -fx-control-inner-background
+        // to match the theme, otherwise it defaults to white.
+        if (control instanceof TextArea) {
+            baseStyle += "-fx-control-inner-background: " + currentControlInnerBase + ";";
+        }
+        // --- END FIX ---
+
+        control.setStyle(baseStyle);
         control.setEffect(lightInnerShadow);
+        
         if (control instanceof TextField) {
             control.setPrefHeight(35);
         }
@@ -764,7 +773,6 @@ public class MainGui extends Application {
             }
         });
     }
-
     private void styleWindowButton(Button button, boolean isCloseButton) {
         String baseStyle = "-fx-background-color: transparent; -fx-text-fill: " + currentMutedTextColor + "; -fx-font-weight: bold; -fx-font-size: 14; -fx-background-radius: 5;";
         
