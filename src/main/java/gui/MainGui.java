@@ -20,7 +20,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 
 import org.kordamp.ikonli.javafx.FontIcon;
-import org.kordamp.ikonli.materialdesign.MaterialDesign;
 
 import core.Database;
 import core.Encryption;
@@ -28,12 +27,6 @@ import core.MasterPassword;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
-// Import the classes we will delegate to
-import gui.AuthManager;
-import gui.ThemeManager;
-import gui.LoginEntry;
-import gui.LoginListCell;
 
 public class MainGui extends Application {
     private static MainGui instance;
@@ -111,9 +104,9 @@ public class MainGui extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        
-        // Delegate authentication to AuthManager
-        // It needs the themeManager to style its prompts
+
+        themeManager.loadThemePreference();
+    	
         AuthManager authManager = new AuthManager(themeManager);
         
         boolean proceed = false;
@@ -141,6 +134,7 @@ public class MainGui extends Application {
         loginListView.setPrefWidth(280);
         loginListView.setMinWidth(200);
 
+
         detailsPane = new VBox(15);
         detailsPane.setPadding(new Insets(20));
         
@@ -164,7 +158,6 @@ public class MainGui extends Application {
         themeToggle.setGraphic(themeIcon);
         
         // Delegate theme preference loading
-        themeManager.loadThemePreference();
         themeToggle.setSelected(themeManager.isDarkMode());
         
         themeToggle.setOnAction(e -> {

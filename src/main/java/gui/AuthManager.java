@@ -10,6 +10,7 @@ import javafx.geometry.Pos; // Import added
 import javafx.stage.StageStyle;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
+import javafx.scene.paint.Color;
 
 import core.Encryption;
 import core.MasterPassword;
@@ -46,6 +47,7 @@ public class AuthManager {
     private boolean showLoginPrompt() throws Exception {
         Dialog<String> dialog = new Dialog<>();
         dialog.initStyle(StageStyle.TRANSPARENT);
+        dialog.getDialogPane().getScene().setFill(Color.TRANSPARENT);
         dialog.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 15;");
         dialog.getDialogPane().setEffect(themeManager.getLightOuterShadow());
 
@@ -125,6 +127,7 @@ public class AuthManager {
     private boolean showFirstRunPrompt() throws Exception {
         Dialog<String> dialog = new Dialog<>();
         dialog.initStyle(StageStyle.TRANSPARENT);
+        dialog.getDialogPane().getScene().setFill(Color.TRANSPARENT);
         dialog.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 15;");
         dialog.getDialogPane().setEffect(themeManager.getLightOuterShadow());
         
