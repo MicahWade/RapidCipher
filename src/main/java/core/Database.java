@@ -53,7 +53,8 @@ public class Database {
     }
 
     private boolean isPasswordTableSchemaCorrect() throws SQLException {
-        String[] requiredColumns = { "name", "username", "password", "url", "notes" };
+        // Check for 'id' as well
+        String[] requiredColumns = { "id", "name", "username", "password", "url", "notes" };
         DatabaseMetaData meta = connection.getMetaData();
         try (ResultSet columns = meta.getColumns(null, null, "logins", null)) {
             int foundColumns = 0;
@@ -71,7 +72,9 @@ public class Database {
     }
 
     private void createloginsTable() throws SQLException {
+        // UPDATED to include a primary key ID
         String createTableSQL = "CREATE TABLE IF NOT EXISTS logins (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "name TEXT NOT NULL, " +
                 "username TEXT NOT NULL, " +
                 "password TEXT NOT NULL, " +
@@ -91,28 +94,43 @@ public class Database {
     }
 
     // Create a new login entry
-    public boolean createLogin(String name, String username, String password, String url, String notes) {
+    // UPDATED: Now accepts plain-text password, encrypts ALL fields, and returns the new row's ID
+    public long createLogin(String name, String username, String password, String url, String notes) {
         String sql = "INSERT INTO logins (name, username, password, url, notes) VALUES (?, ?, ?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, name);
-            pstmt.setString(2, username);
-            pstmt.setString(3, password);
-            pstmt.setString(4, url);
-            pstmt.setString(5, notes);
+        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            
+            // Encrypt all 5 fields
+            pstmt.setString(1, Encryption.encryptWithIV(name, MasterPassword.getKey()));
+            pstmt.setString(2, Encryption.encryptWithIV(username, MasterPassword.getKey()));
+            pstmt.setString(3, Encryption.encryptWithIV(password, MasterPassword.getKey()));
+            pstmt.setString(4, Encryption.encryptWithIV(url, MasterPassword.getKey()));
+            pstmt.setString(5, Encryption.encryptWithIV(notes, MasterPassword.getKey()));
+            
             int affectedRows = pstmt.executeUpdate();
-            return affectedRows > 0;
+
+            if (affectedRows > 0) {
+                try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        return rs.getLong(1); // Return the new ID
+                    }
+                }
+            }
+            return -1; // Failure
         } catch (SQLException e) {
             System.err.println("Create login failed: " + e.getMessage());
-            return false;
+            return -1; // Failure
+        } catch (Exception e) {
+            System.err.println("Encryption failed during create: " + e.getMessage());
+            return -1; // Failure
         }
     }
 
-    // Delete a login by name and username (you can customize the key)
-    public boolean deleteLogin(String name, String username) {
-        String sql = "DELETE FROM logins WHERE name = ? AND username = ?";
+    // Delete a login by its unique ID
+    // UPDATED: Signature now takes a long id
+    public boolean deleteLogin(long id) {
+        String sql = "DELETE FROM logins WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, name);
-            pstmt.setString(2, username);
+            pstmt.setLong(1, id);
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0;
         } catch (SQLException e) {
@@ -121,14 +139,11 @@ public class Database {
         }
     }
 
-    public ResultSet searchLogins(String searchTerm) {
-        String sql = "SELECT * FROM logins WHERE name LIKE ? OR username LIKE ? OR notes LIKE ?";
+    // UPDATED: Removed searchTerm, this method now just gets ALL logins
+    public ResultSet searchLogins() {
+        String sql = "SELECT id, name, username, password, url, notes FROM logins";
         try {
             PreparedStatement pstmt = connection.prepareStatement(sql);
-            String wildcardTerm = "%" + searchTerm + "%";
-            pstmt.setString(1, wildcardTerm);
-            pstmt.setString(2, wildcardTerm);
-            pstmt.setString(3, wildcardTerm);
             return pstmt.executeQuery();
         } catch (SQLException e) {
             System.err.println("Search login failed: " + e.getMessage());

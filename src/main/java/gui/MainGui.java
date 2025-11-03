@@ -57,7 +57,6 @@ public class MainGui extends Application {
 
     public MainGui() {
         instance = this;
-        // Initialize the ThemeManager
         this.themeManager = new ThemeManager(); 
         
         try {
@@ -73,8 +72,6 @@ public class MainGui extends Application {
     }
 
     private void updateAllStyles() {
-        // All styling helpers are gone.
-        // We now get colors/effects directly from the themeManager.
         
         root.setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 20;");
         mainLayout.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + "; -fx-background-radius: 15;");
@@ -104,9 +101,10 @@ public class MainGui extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-
+        
         themeManager.loadThemePreference();
-    	
+
+        
         AuthManager authManager = new AuthManager(themeManager);
         
         boolean proceed = false;
@@ -129,11 +127,10 @@ public class MainGui extends Application {
 
         loginListView = new ListView<>();
         loginListView.setItems(loginData);
-        // Use the external LoginListCell and pass it the themeManager
+
         loginListView.setCellFactory(lv -> new LoginListCell(themeManager)); 
         loginListView.setPrefWidth(280);
         loginListView.setMinWidth(200);
-
 
         detailsPane = new VBox(15);
         detailsPane.setPadding(new Insets(20));
@@ -157,11 +154,9 @@ public class MainGui extends Application {
         themeToggle = new ToggleButton();
         themeToggle.setGraphic(themeIcon);
         
-        // Delegate theme preference loading
         themeToggle.setSelected(themeManager.isDarkMode());
         
         themeToggle.setOnAction(e -> {
-            // Delegate all theme actions
             themeManager.setDarkMode(themeToggle.isSelected());
             themeManager.updateThemeStyles();
             themeManager.saveThemePreference();
@@ -226,7 +221,6 @@ public class MainGui extends Application {
         title.setFont(Font.font("System", FontWeight.BOLD, 18));
         title.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
 
-        // Use themeManager to create styled controls
         TextField nameField = themeManager.createStyledTextField("Name");
         TextField usernameField = themeManager.createStyledTextField("Username");
         
@@ -296,9 +290,9 @@ public class MainGui extends Application {
         
         ToggleButton showHideButton = themeManager.createShowHideButton();
         showHideButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal) { // Show
+            if (newVal) {
                 passDisplay.setText(login.getPassword());
-            } else { // Hide
+            } else {
                 passDisplay.setText("************");
             }
         });
@@ -307,7 +301,7 @@ public class MainGui extends Application {
         copyPassButton.setOnAction(e -> {
             Clipboard clipboard = Clipboard.getSystemClipboard();
             ClipboardContent content = new ClipboardContent();
-            content.putString(login.getPassword()); // Get the REAL password
+            content.putString(login.getPassword()); 
             clipboard.setContent(content);
             statusLabel.setText("Password copied to clipboard.");
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
@@ -323,7 +317,7 @@ public class MainGui extends Application {
 
         TextArea notesDisplay = new TextArea(login.getNotes());
         notesDisplay.setPromptText("Notes");
-        themeManager.styleControl(notesDisplay); // Use themeManager to style
+        themeManager.styleControl(notesDisplay);
         notesDisplay.setEditable(false);
         notesDisplay.setWrapText(true);
         notesDisplay.setPrefHeight(80);
@@ -346,24 +340,34 @@ public class MainGui extends Application {
     private void loadDataFromDatabase() {
         loginData.clear();
         try {
-            ResultSet rs = database.searchLogins("");
+            ResultSet rs = database.searchLogins(); 
             while (rs != null && rs.next()) {
                 
-                String encryptedPass = rs.getString("password");
-                String plainTextPass;
+                long id = rs.getLong("id");
+                String plainTextName = "!!DECRYPT_ERROR!!";
+                String plainTextUser = "!!DECRYPT_ERROR!!";
+                String plainTextPass = "!!DECRYPT_ERROR!!";
+                String plainTextUrl = "!!DECRYPT_ERROR!!";
+                String plainTextNotes = "!!DECRYPT_ERROR!!";
+
                 try {
-                    plainTextPass = Encryption.decryptWithIV(encryptedPass, MasterPassword.getKey());
+                    plainTextName = Encryption.decryptWithIV(rs.getString("name"), MasterPassword.getKey());
+                    plainTextUser = Encryption.decryptWithIV(rs.getString("username"), MasterPassword.getKey());
+                    plainTextPass = Encryption.decryptWithIV(rs.getString("password"), MasterPassword.getKey());
+                    plainTextUrl = Encryption.decryptWithIV(rs.getString("url"), MasterPassword.getKey());
+                    plainTextNotes = Encryption.decryptWithIV(rs.getString("notes"), MasterPassword.getKey());
+
                 } catch (Exception e) {
                     e.printStackTrace();
-                    plainTextPass = "!!DECRYPT_ERROR!!";
                 }
 
                 loginData.add(new LoginEntry(
-                        rs.getString("name"),
-                        rs.getString("username"),
+                        id,
+                        plainTextName,
+                        plainTextUser,
                         plainTextPass,
-                        rs.getString("url"),
-                        rs.getString("notes")
+                        plainTextUrl,
+                        plainTextNotes
                 ));
             }
             if (rs != null) rs.close();
@@ -385,23 +389,13 @@ public class MainGui extends Application {
             return;
         }
 
-        String encryptedPass;
-        try {
-            encryptedPass = Encryption.encryptWithIV(password, MasterPassword.getKey());
-        } catch (Exception e) {
-            e.printStackTrace();
-            statusLabel.setText("Failed to encrypt password.");
-            statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
-            return;
-        }
-
-        boolean success = database.createLogin(name, username, encryptedPass, url, notes);
+        long newId = database.createLogin(name, username, password, url, notes);
         
-        if (success) {
+        if (newId != -1) {
             statusLabel.setText("Login added successfully.");
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
             
-            LoginEntry newLogin = new LoginEntry(name, username, password, url, notes); 
+            LoginEntry newLogin = new LoginEntry(newId, name, username, password, url, notes); 
             loginData.add(newLogin);
             loginListView.getSelectionModel().select(newLogin);
             
@@ -417,7 +411,7 @@ public class MainGui extends Application {
     }
     
     private void deleteLogin(LoginEntry login) {
-        boolean success = database.deleteLogin(login.getName(), login.getUsername());
+        boolean success = database.deleteLogin(login.getId());
         if (success) {
             statusLabel.setText("Login deleted successfully.");
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
@@ -428,7 +422,4 @@ public class MainGui extends Application {
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
         }
     }
-    
-    // All styling helper methods have been removed.
-    // All inner classes have been removed.
 }
