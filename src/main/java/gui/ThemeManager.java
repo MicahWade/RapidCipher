@@ -1,14 +1,16 @@
 package gui;
 
-import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.scene.control.Button;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextArea; // Import added
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.Alert; // Import added
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.InnerShadow;
 import javafx.scene.paint.Color;
+import javafx.stage.StageStyle; // Import added
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 
@@ -194,11 +196,19 @@ public class ThemeManager {
         lightInnerShadow.setOffsetY(-2);
         lightInnerShadow.setInput(darkInnerShadow);
 
-        control.setStyle(
-            "-fx-background-color: " + currentControlInnerBase + ";" +
-            "-fx-background-radius: 10;" +
-            "-fx-text-fill: " + currentTextColor + ";"
-        );
+        String baseStyle = "-fx-background-color: " + currentControlInnerBase + ";" +
+                         "-fx-background-radius: 10;" +
+                         "-fx-text-fill: " + currentTextColor + ";";
+
+        // --- THIS IS THE FIX ---
+        // For TextArea, we must also set the -fx-control-inner-background
+        // to match the theme, otherwise it defaults to white.
+        if (control instanceof TextArea) {
+            baseStyle += "-fx-control-inner-background: " + currentControlInnerBase + ";";
+        }
+        // --- END FIX ---
+
+        control.setStyle(baseStyle);
         control.setEffect(lightInnerShadow);
         if (control instanceof TextField) {
             control.setPrefHeight(35);
@@ -247,6 +257,93 @@ public class ThemeManager {
         } else {
             toggle.setEffect(lightOuterShadow);
         }
+    }
+    
+    // --- ADDED: Method moved from MainGui ---
+    public Button createCopyButton() {
+        Button copyButton = new Button();
+        FontIcon copyIcon = new FontIcon(MaterialDesign.MDI_CONTENT_COPY);
+        copyIcon.setIconSize(16);
+        copyIcon.setIconColor(Color.web(currentMutedTextColor));
+        copyButton.setGraphic(copyIcon);
+
+        // Style to match text fields
+        String style = "-fx-background-color: " + currentBaseColor + "; " +
+                       "-fx-background-radius: 10; " +
+                       "-fx-background-insets: 0;";
+        copyButton.setStyle(style);
+        copyButton.setEffect(lightOuterShadow);
+        
+        // Set fixed size to match text field height
+        copyButton.setPrefSize(35, 35);
+        copyButton.setMinSize(35, 35);
+
+        copyButton.setOnMousePressed(e -> {
+            copyButton.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";");
+            copyButton.setEffect(lightInnerShadow);
+        });
+        copyButton.setOnMouseReleased(e -> {
+            copyButton.setStyle(style);
+            copyButton.setEffect(lightOuterShadow);
+        });
+
+        return copyButton;
+    }
+    
+    // --- ADDED: Method moved from MainGui ---
+    public ToggleButton createShowHideButton() {
+        ToggleButton showHideButton = new ToggleButton();
+        FontIcon eyeIcon = new FontIcon(MaterialDesign.MDI_EYE);
+        eyeIcon.setIconSize(16);
+        eyeIcon.setIconColor(Color.web(currentMutedTextColor));
+        showHideButton.setGraphic(eyeIcon);
+
+        // Style to match text fields
+        String style = "-fx-background-color: " + currentBaseColor + "; " +
+                       "-fx-background-radius: 10; " +
+                       "-fx-background-insets: 0;";
+        showHideButton.setStyle(style);
+        showHideButton.setEffect(lightOuterShadow);
+        
+        // Set fixed size to match text field height
+        showHideButton.setPrefSize(35, 35);
+        showHideButton.setMinSize(35, 35);
+
+        showHideButton.setOnMousePressed(e -> {
+            showHideButton.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";");
+            showHideButton.setEffect(lightInnerShadow);
+        });
+        showHideButton.setOnMouseReleased(e -> {
+            showHideButton.setStyle(style);
+            showHideButton.setEffect(lightOuterShadow);
+        });
+
+        // Add listener to change icon
+        showHideButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal) {
+                eyeIcon.setIconCode(MaterialDesign.MDI_EYE_OFF);
+            } else {
+                eyeIcon.setIconCode(MaterialDesign.MDI_EYE);
+            }
+        });
+
+        return showHideButton;
+    }
+    
+    // --- ADDED: Method moved from MainGui and made public ---
+    public void showErrorAlert(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.initStyle(StageStyle.TRANSPARENT);
+        alert.getDialogPane().setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 15;");
+        alert.getDialogPane().setEffect(lightOuterShadow);
+        
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        
+        alert.getDialogPane().lookup(".content.label").setStyle("-fx-text-fill: " + currentTextColor + ";");
+        
+        alert.showAndWait();
     }
     
     // --- Getters ---

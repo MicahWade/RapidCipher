@@ -3,6 +3,10 @@ package gui;
 import javafx.application.Platform;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox; // Import added
+import javafx.scene.layout.Priority; // Import added
+import javafx.scene.layout.StackPane; // Import added
+import javafx.geometry.Pos; // Import added
 import javafx.stage.StageStyle;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
@@ -52,13 +56,32 @@ public class AuthManager {
         Label label = new Label("Password:");
         label.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
         
+        // --- START: Updated Password Field ---
         PasswordField pwd = themeManager.createStyledPasswordField("");
+        TextField visiblePwd = themeManager.createStyledTextField("");
+        visiblePwd.setPromptText("Password");
+        visiblePwd.textProperty().bindBidirectional(pwd.textProperty());
+        visiblePwd.setVisible(false);
+        
+        StackPane passStack = new StackPane(pwd, visiblePwd);
+        StackPane.setAlignment(visiblePwd, Pos.CENTER_LEFT);
+        StackPane.setAlignment(pwd, Pos.CENTER_LEFT);
+
+        ToggleButton showHideButton = themeManager.createShowHideButton();
+        showHideButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            visiblePwd.setVisible(newVal);
+            pwd.setVisible(!newVal);
+        });
+        
+        HBox passBox = new HBox(10, passStack, showHideButton);
+        HBox.setHgrow(passStack, Priority.ALWAYS);
+        // --- END: Updated Password Field ---
         
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
         grid.add(label, 0, 0);
-        grid.add(pwd, 1, 0);
+        grid.add(passBox, 1, 0); // Use passBox
         dialog.getDialogPane().setContent(grid);
 
         Platform.runLater(pwd::requestFocus);
@@ -114,16 +137,49 @@ public class AuthManager {
         Label label2 = new Label("Confirm:");
         label2.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
 
+        // --- START: Updated Password Field 1 ---
         PasswordField pwd1 = themeManager.createStyledPasswordField("");
+        TextField visiblePwd1 = themeManager.createStyledTextField("");
+        visiblePwd1.setPromptText("Password");
+        visiblePwd1.textProperty().bindBidirectional(pwd1.textProperty());
+        visiblePwd1.setVisible(false);
+        StackPane passStack1 = new StackPane(pwd1, visiblePwd1);
+        StackPane.setAlignment(visiblePwd1, Pos.CENTER_LEFT);
+        StackPane.setAlignment(pwd1, Pos.CENTER_LEFT);
+        ToggleButton showHideButton1 = themeManager.createShowHideButton();
+        showHideButton1.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            visiblePwd1.setVisible(newVal);
+            pwd1.setVisible(!newVal);
+        });
+        HBox passBox1 = new HBox(10, passStack1, showHideButton1);
+        HBox.setHgrow(passStack1, Priority.ALWAYS);
+        // --- END: Updated Password Field 1 ---
+
+        // --- START: Updated Password Field 2 ---
         PasswordField pwd2 = themeManager.createStyledPasswordField("");
+        TextField visiblePwd2 = themeManager.createStyledTextField("");
+        visiblePwd2.setPromptText("Confirm Password");
+        visiblePwd2.textProperty().bindBidirectional(pwd2.textProperty());
+        visiblePwd2.setVisible(false);
+        StackPane passStack2 = new StackPane(pwd2, visiblePwd2);
+        StackPane.setAlignment(visiblePwd2, Pos.CENTER_LEFT);
+        StackPane.setAlignment(pwd2, Pos.CENTER_LEFT);
+        ToggleButton showHideButton2 = themeManager.createShowHideButton();
+        showHideButton2.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            visiblePwd2.setVisible(newVal);
+            pwd2.setVisible(!newVal);
+        });
+        HBox passBox2 = new HBox(10, passStack2, showHideButton2);
+        HBox.setHgrow(passStack2, Priority.ALWAYS);
+        // --- END: Updated Password Field 2 ---
         
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
         grid.add(label1, 0, 0);
-        grid.add(pwd1, 1, 0);
+        grid.add(passBox1, 1, 0); // Use passBox1
         grid.add(label2, 0, 1);
-        grid.add(pwd2, 1, 1);
+        grid.add(passBox2, 1, 1); // Use passBox2
         dialog.getDialogPane().setContent(grid);
 
         Platform.runLater(pwd1::requestFocus);
@@ -165,6 +221,7 @@ public class AuthManager {
     }
     
     private void showErrorAlert(String title, String content) {
+        // This method is private and already uses themeManager, so it's perfect.
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.initStyle(StageStyle.TRANSPARENT);
         alert.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + "; -fx-background-radius: 15;");
