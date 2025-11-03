@@ -200,13 +200,9 @@ public class ThemeManager {
                          "-fx-background-radius: 10;" +
                          "-fx-text-fill: " + currentTextColor + ";";
 
-        // --- THIS IS THE FIX ---
-        // For TextArea, we must also set the -fx-control-inner-background
-        // to match the theme, otherwise it defaults to white.
         if (control instanceof TextArea) {
             baseStyle += "-fx-control-inner-background: " + currentControlInnerBase + ";";
         }
-        // --- END FIX ---
 
         control.setStyle(baseStyle);
         control.setEffect(lightInnerShadow);
@@ -259,7 +255,6 @@ public class ThemeManager {
         }
     }
     
-    // --- ADDED: Method moved from MainGui ---
     public Button createCopyButton() {
         Button copyButton = new Button();
         FontIcon copyIcon = new FontIcon(MaterialDesign.MDI_CONTENT_COPY);
@@ -267,14 +262,12 @@ public class ThemeManager {
         copyIcon.setIconColor(Color.web(currentMutedTextColor));
         copyButton.setGraphic(copyIcon);
 
-        // Style to match text fields
         String style = "-fx-background-color: " + currentBaseColor + "; " +
                        "-fx-background-radius: 10; " +
                        "-fx-background-insets: 0;";
         copyButton.setStyle(style);
         copyButton.setEffect(lightOuterShadow);
         
-        // Set fixed size to match text field height
         copyButton.setPrefSize(35, 35);
         copyButton.setMinSize(35, 35);
 
@@ -290,7 +283,6 @@ public class ThemeManager {
         return copyButton;
     }
     
-    // --- ADDED: Method moved from MainGui ---
     public ToggleButton createShowHideButton() {
         ToggleButton showHideButton = new ToggleButton();
         FontIcon eyeIcon = new FontIcon(MaterialDesign.MDI_EYE);
@@ -298,14 +290,12 @@ public class ThemeManager {
         eyeIcon.setIconColor(Color.web(currentMutedTextColor));
         showHideButton.setGraphic(eyeIcon);
 
-        // Style to match text fields
         String style = "-fx-background-color: " + currentBaseColor + "; " +
                        "-fx-background-radius: 10; " +
                        "-fx-background-insets: 0;";
         showHideButton.setStyle(style);
         showHideButton.setEffect(lightOuterShadow);
         
-        // Set fixed size to match text field height
         showHideButton.setPrefSize(35, 35);
         showHideButton.setMinSize(35, 35);
 
@@ -330,7 +320,6 @@ public class ThemeManager {
         return showHideButton;
     }
     
-    // --- ADDED: Method moved from MainGui and made public ---
     public void showErrorAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.initStyle(StageStyle.TRANSPARENT);
