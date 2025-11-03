@@ -385,12 +385,29 @@ public class MainGui extends Application {
         label.setStyle("-fx-text-fill: " + currentTextColor + ";");
         
         PasswordField pwd = createStyledPasswordField("");
+        TextField visiblePwd = createStyledTextField("");
+        visiblePwd.setPromptText("Password");
+        visiblePwd.textProperty().bindBidirectional(pwd.textProperty());
+        visiblePwd.setVisible(false);
         
+        StackPane passStack = new StackPane(pwd, visiblePwd);
+        StackPane.setAlignment(visiblePwd, Pos.CENTER_LEFT);
+        StackPane.setAlignment(pwd, Pos.CENTER_LEFT);
+
+        ToggleButton showHideButton = createShowHideButton();
+        showHideButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            visiblePwd.setVisible(newVal);
+            pwd.setVisible(!newVal);
+        });
+        
+        HBox passBox = new HBox(10, passStack, showHideButton);
+        HBox.setHgrow(passStack, Priority.ALWAYS);
+
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
         grid.add(label, 0, 0);
-        grid.add(pwd, 1, 0);
+        grid.add(passBox, 1, 0); // Use passBox instead of pwd
         dialog.getDialogPane().setContent(grid);
 
         Platform.runLater(pwd::requestFocus);
@@ -446,16 +463,49 @@ public class MainGui extends Application {
         Label label2 = new Label("Confirm:");
         label2.setStyle("-fx-text-fill: " + currentTextColor + ";");
 
+        // --- START MODIFICATION 1 ---
         PasswordField pwd1 = createStyledPasswordField("");
+        TextField visiblePwd1 = createStyledTextField("");
+        visiblePwd1.setPromptText("Password");
+        visiblePwd1.textProperty().bindBidirectional(pwd1.textProperty());
+        visiblePwd1.setVisible(false);
+        StackPane passStack1 = new StackPane(pwd1, visiblePwd1);
+        StackPane.setAlignment(visiblePwd1, Pos.CENTER_LEFT);
+        StackPane.setAlignment(pwd1, Pos.CENTER_LEFT);
+        ToggleButton showHideButton1 = createShowHideButton();
+        showHideButton1.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            visiblePwd1.setVisible(newVal);
+            pwd1.setVisible(!newVal);
+        });
+        HBox passBox1 = new HBox(10, passStack1, showHideButton1);
+        HBox.setHgrow(passStack1, Priority.ALWAYS);
+        // --- END MODIFICATION 1 ---
+
+        // --- START MODIFICATION 2 ---
         PasswordField pwd2 = createStyledPasswordField("");
+        TextField visiblePwd2 = createStyledTextField("");
+        visiblePwd2.setPromptText("Confirm Password");
+        visiblePwd2.textProperty().bindBidirectional(pwd2.textProperty());
+        visiblePwd2.setVisible(false);
+        StackPane passStack2 = new StackPane(pwd2, visiblePwd2);
+        StackPane.setAlignment(visiblePwd2, Pos.CENTER_LEFT);
+        StackPane.setAlignment(pwd2, Pos.CENTER_LEFT);
+        ToggleButton showHideButton2 = createShowHideButton();
+        showHideButton2.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            visiblePwd2.setVisible(newVal);
+            pwd2.setVisible(!newVal);
+        });
+        HBox passBox2 = new HBox(10, passStack2, showHideButton2);
+        HBox.setHgrow(passStack2, Priority.ALWAYS);
+        // --- END MODIFICATION 2 ---
         
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
         grid.add(label1, 0, 0);
-        grid.add(pwd1, 1, 0);
+        grid.add(passBox1, 1, 0); // Use passBox1
         grid.add(label2, 0, 1);
-        grid.add(pwd2, 1, 1);
+        grid.add(passBox2, 1, 1); // Use passBox2
         dialog.getDialogPane().setContent(grid);
 
         Platform.runLater(pwd1::requestFocus);
@@ -471,7 +521,8 @@ public class MainGui extends Application {
             }
             return "CANCEL";
         });
-
+        
+        // ... (rest of the method is unchanged) ...
         String password = null;
         while (password == null) {
             Optional<String> result = dialog.showAndWait();
@@ -494,8 +545,7 @@ public class MainGui extends Application {
 
         MasterPassword.setKey(key);
         return true;
-    }
-    
+    }    
     private void showErrorAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.initStyle(StageStyle.TRANSPARENT);
@@ -521,7 +571,25 @@ public class MainGui extends Application {
 
         TextField nameField = createStyledTextField("Name");
         TextField usernameField = createStyledTextField("Username");
+        
         PasswordField passwordField = createStyledPasswordField("Password");
+        TextField visiblePasswordField = createStyledTextField("Password");
+        visiblePasswordField.textProperty().bindBidirectional(passwordField.textProperty());
+        visiblePasswordField.setVisible(false);
+        
+        StackPane passStack = new StackPane(passwordField, visiblePasswordField);
+        StackPane.setAlignment(visiblePasswordField, Pos.CENTER_LEFT);
+        StackPane.setAlignment(passwordField, Pos.CENTER_LEFT);
+
+        ToggleButton showHidePassButton = createShowHideButton();
+        showHidePassButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            visiblePasswordField.setVisible(newVal);
+            passwordField.setVisible(!newVal);
+        });
+        
+        HBox passBox = new HBox(10, passStack, showHidePassButton);
+        HBox.setHgrow(passStack, Priority.ALWAYS);
+
         TextField urlField = createStyledTextField("URL");
         TextField notesField = createStyledTextField("Notes");
         notesField.setPrefHeight(80);
@@ -530,7 +598,7 @@ public class MainGui extends Application {
         
         addButton.setOnAction(e -> addLogin(nameField, usernameField, passwordField, urlField, notesField));
         
-        form.getChildren().addAll(title, nameField, usernameField, passwordField, urlField, notesField, addButton);
+        form.getChildren().addAll(title, nameField, usernameField, passBox, urlField, notesField, addButton); // Use passBox
         return form;
     }
 
@@ -562,15 +630,25 @@ public class MainGui extends Application {
             statusLabel.setStyle("-fx-text-fill: " + currentSuccessColor + ";");
         });
         
-        // Use HBox to place text field and button on one line
         HBox userBox = new HBox(10, userDisplay, copyUserButton);
         userBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(userDisplay, Priority.ALWAYS); // Make text field fill space
+        HBox.setHgrow(userDisplay, Priority.ALWAYS); 
 
         // --- Password Row (with copy button) ---
         TextField passDisplay = createStyledTextField("Password");
         passDisplay.setText("************");
         passDisplay.setEditable(false);
+        
+        // --- START MODIFICATION ---
+        ToggleButton showHideButton = createShowHideButton();
+        showHideButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal) { // Show
+                passDisplay.setText(login.getPassword());
+            } else { // Hide
+                passDisplay.setText("************");
+            }
+        });
+        // --- END MODIFICATION ---
         
         Button copyPassButton = createCopyButton();
         copyPassButton.setOnAction(e -> {
@@ -583,11 +661,12 @@ public class MainGui extends Application {
         });
         
         // Use HBox for password row
-        HBox passBox = new HBox(10, passDisplay, copyPassButton);
+        HBox passBox = new HBox(10, passDisplay, showHideButton, copyPassButton); // Added showHideButton
         passBox.setAlignment(Pos.CENTER);
         HBox.setHgrow(passDisplay, Priority.ALWAYS); // Make text field fill space
 
         // --- Other Fields ---
+        // ... (rest of the method is unchanged) ...
         TextField urlDisplay = createStyledTextField("URL");
         urlDisplay.setText(login.getUrl());
         urlDisplay.setEditable(false);
@@ -881,6 +960,44 @@ public class MainGui extends Application {
         });
 
         return copyButton;
+    }
+    private ToggleButton createShowHideButton() {
+        ToggleButton showHideButton = new ToggleButton();
+        FontIcon eyeIcon = new FontIcon(MaterialDesign.MDI_EYE);
+        eyeIcon.setIconSize(16);
+        eyeIcon.setIconColor(Color.web(currentMutedTextColor));
+        showHideButton.setGraphic(eyeIcon);
+
+        // Style to match text fields
+        String style = "-fx-background-color: " + currentBaseColor + "; " +
+                       "-fx-background-radius: 10; " +
+                       "-fx-background-insets: 0;";
+        showHideButton.setStyle(style);
+        showHideButton.setEffect(lightOuterShadow);
+        
+        // Set fixed size to match text field height
+        showHideButton.setPrefSize(35, 35);
+        showHideButton.setMinSize(35, 35);
+
+        showHideButton.setOnMousePressed(e -> {
+            showHideButton.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";");
+            showHideButton.setEffect(lightInnerShadow);
+        });
+        showHideButton.setOnMouseReleased(e -> {
+            showHideButton.setStyle(style);
+            showHideButton.setEffect(lightOuterShadow);
+        });
+
+        // Add listener to change icon
+        showHideButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal) {
+                eyeIcon.setIconCode(MaterialDesign.MDI_EYE_OFF);
+            } else {
+                eyeIcon.setIconCode(MaterialDesign.MDI_EYE);
+            }
+        });
+
+        return showHideButton;
     }
 
     public static class LoginEntry {
