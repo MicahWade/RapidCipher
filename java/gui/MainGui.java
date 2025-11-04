@@ -322,7 +322,6 @@ public class MainGui extends Application {
         }
     }
 
-    // This method is called by GuiBuilder
     void addLogin(TextField nameField, TextField usernameField, PasswordField passwordField, TextField urlField, TextArea notesField) {
         String name = nameField.getText();
         String username = usernameField.getText();
@@ -393,7 +392,7 @@ public class MainGui extends Application {
             Database destDb = null;
             try {
                 System.out.println("Starting migration: Connecting to source DB...");
-                sourceDb = this.database; // Use the already open connection
+                sourceDb = this.database;
                 
                 System.out.println("Connecting to destination DB...");
                 destDb = new Database(newConfig);
@@ -420,10 +419,8 @@ public class MainGui extends Application {
             } catch (Exception e) {
                 e.printStackTrace();
                 themeManager.showErrorAlert("Migration Failed", "Could not migrate data: " + e.getMessage());
-                // Stop! Don't save the config if migration failed.
                 return; 
             } finally {
-                // Close the *new* database connection, but leave the source (main) one open
                 if (destDb != null) {
                     destDb.closeConnection();
                 }
@@ -478,7 +475,6 @@ public class MainGui extends Application {
         }
     }
 
-    // --- Getters for GuiBuilder ---
     public Label getStatusLabel() {
         return statusLabel;
     }
