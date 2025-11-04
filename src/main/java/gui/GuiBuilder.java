@@ -50,7 +50,6 @@ public class GuiBuilder {
         dbTypeLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
         ComboBox<String> dbTypeBox = new ComboBox<>();
         
-        // --- MODIFIED ---
         dbTypeBox.setItems(FXCollections.observableArrayList(
             "SQLITE", 
             "MYSQL", 
@@ -65,7 +64,6 @@ public class GuiBuilder {
         remoteFields.setHgap(10);
         remoteFields.setVgap(10);
 
-        // --- MODIFIED prompt text for clarity ---
         TextField hostField = themeManager.createStyledTextField("Host / IP Address");
         TextField portField = themeManager.createStyledTextField("Port (e.g., 3306, 5432)");
         TextField dbNameField = themeManager.createStyledTextField("Database Name / Path");
@@ -106,10 +104,11 @@ public class GuiBuilder {
         ConfigManager.DbConfig currentDbConfig = mainGui.getDbConfig();
         ConfigManager.DbConfig displayConfig = currentDbConfig;
         
-        // --- MODIFIED LOGIC ---
         // Decrypt if *not* SQLite
         if (!currentDbConfig.dbType().equals("SQLITE")) {
             try {
+                // Check if MasterPassword key is available before decrypting
+                MasterPassword.getKey(); // This will throw if not set
                 String host = Encryption.decryptWithIV(currentDbConfig.host(), MasterPassword.getKey());
                 String port = Encryption.decryptWithIV(currentDbConfig.port(), MasterPassword.getKey());
                 String dbName = Encryption.decryptWithIV(currentDbConfig.dbName(), MasterPassword.getKey());
@@ -130,16 +129,13 @@ public class GuiBuilder {
         userField.setText(displayConfig.user());
         passField.setText(displayConfig.pass());
 
-        // --- MODIFIED LOGIC ---
         // Show remote fields if not SQLite
         remoteFields.setVisible(!currentDbConfig.dbType().equals("SQLITE"));
         
-        CheckBox migrateDataCheck = new CheckBox("Copy data from current DB to new DB");
-        migrateDataCheck.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+        CheckBox migrateDataCheck = themeManager.createStyledCheckBox("Copy data from current DB to new DB");
         migrateDataCheck.setVisible(false); 
 
         dbTypeBox.valueProperty().addListener((obs, oldVal, newVal) -> {
-            // --- MODIFIED LOGIC ---
             // Show remote fields if not SQLite
             remoteFields.setVisible(!newVal.equals("SQLITE"));
             migrateDataCheck.setVisible(!newVal.equals(currentDbConfig.dbType()));
@@ -182,6 +178,34 @@ public class GuiBuilder {
             
             mainGui.saveDbSettings(newConfig, migrateDataCheck.isSelected(), restartLabel);
         });
+        
+        // --- ADDED: Browser Integration Section ---
+        
+        Separator separator = new Separator();
+        separator.setPadding(new Insets(10, 0, 0, 0));
+
+        Label browserTitle = new Label("Browser Integration (Native Messaging)");
+        browserTitle.setFont(Font.font("System", FontWeight.BOLD, 16));
+        browserTitle.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+
+        CheckBox bridgeCheck = themeManager.createStyledCheckBox("Enable Browser Bridge");
+        bridgeCheck.setSelected(themeManager.isBridgeEnabled());
+        
+        Label bridgeInfo = new Label("Allows the browser extension to connect to this application.\n" + 
+                                     "You must still run the one-time `install_host` script.\n" + 
+                                     "Your browser may need to be restarted to detect changes.");
+        bridgeInfo.setWrapText(true);
+        bridgeInfo.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
+
+        // Add listener to toggle the bridge and save the setting
+        bridgeCheck.setOnAction(e -> {
+            boolean isEnabled = bridgeCheck.isSelected();
+            themeManager.setBridgeEnabled(isEnabled);
+            themeManager.saveThemePreference(); // Save the setting to settings.properties
+            mainGui.toggleBridge(isEnabled); // Tell the main GUI to start/stop the thread
+        });
+        
+        // --- End of new section ---
 
         pane.getChildren().addAll(
                 title,
@@ -190,7 +214,12 @@ public class GuiBuilder {
                 remoteFields,
                 migrateDataCheck, 
                 saveButton,
-                restartLabel);
+                restartLabel,
+                separator,      // ADDED
+                browserTitle,   // ADDED
+                bridgeCheck,    // ADDED
+                bridgeInfo      // ADDED
+        );
 
         hostField.setMaxWidth(Double.MAX_VALUE);
         portField.setMaxWidth(Double.MAX_VALUE);
@@ -205,8 +234,6 @@ public class GuiBuilder {
 
         return pane;
     }
-
-    // ... (rest of GuiBuilder.java is unchanged) ...
     
     public VBox buildAddForm() {
         VBox form = new VBox(15);
@@ -241,8 +268,12 @@ public class GuiBuilder {
         HBox.setHgrow(passStack, Priority.ALWAYS);
 
         TextField urlField = themeManager.createStyledTextField("URL");
-        TextField notesField = themeManager.createStyledTextField("Notes");
+        TextArea notesField = new TextArea(); // Use TextArea
+        notesField.setPromptText("Notes");
+        themeManager.styleControl(notesField); // Style it as a control
         notesField.setPrefHeight(80);
+        notesField.setWrapText(true);
+
 
         Button addButton = themeManager.createStyledButton("Add Login");
 
@@ -252,7 +283,6 @@ public class GuiBuilder {
         return form;
     }
     
-    // --- UPDATED METHOD ---
     private void showGeneratorDialog(PasswordField targetPasswordField) {
         Dialog<String> dialog = new Dialog<>();
         dialog.initStyle(StageStyle.TRANSPARENT);
@@ -428,9 +458,16 @@ public class GuiBuilder {
         
         // Style buttons
         Button useButton = (Button) dialog.getDialogPane().lookupButton(useButtonType);
-        useButton.setStyle(themeManager.createStyledButton("Use This", themeManager.getCurrentSuccessColor()).getStyle());
+        themeManager.styleIconButton(useButton, null); // Apply base style
+        useButton.setText("Use This");
+        useButton.setStyle(useButton.getStyle() + " -fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
+        useButton.setPrefWidth(100);
+        
         Button cancelButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.CANCEL);
-        cancelButton.setStyle(themeManager.createStyledButton("Cancel").getStyle());
+        themeManager.styleIconButton(cancelButton, null); // Apply base style
+        cancelButton.setText("Cancel");
+        cancelButton.setPrefWidth(100);
+
 
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == useButtonType) {
@@ -454,7 +491,6 @@ public class GuiBuilder {
     }
 
     public VBox buildDetailsForm(LoginEntry login) {
-        // ... (existing code)
         VBox form = new VBox(15);
         form.setPadding(new Insets(10));
 
@@ -531,4 +567,45 @@ public class GuiBuilder {
         form.getChildren().addAll(title, nameDisplay, userBox, passBox, urlDisplay, notesDisplay, buttonBar);
         return form;
     }
+    
+    // ADDED: Overloaded addLogin for TextArea
+    void addLogin(TextField nameField, TextField usernameField, PasswordField passwordField, TextField urlField, TextArea notesField) {
+        String name = nameField.getText();
+        String username = usernameField.getText();
+        String password = passwordField.getText();
+        String url = urlField.getText();
+        String notes = notesField.getText();
+
+        if (name.isEmpty() || username.isEmpty() || password.isEmpty()) {
+            mainGui.getStatusLabel().setText("Name, Username, and Password are mandatory.");
+            mainGui.getStatusLabel().setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
+            return;
+        }
+
+        if (mainGui.getDatabase() == null) {
+            themeManager.showErrorAlert("Database Error", "Database is not connected. Check settings.");
+            return;
+        }
+        
+        long newId = mainGui.getDatabase().createLogin(name, username, password, url, notes);
+
+        if (newId != -1) {
+            mainGui.getStatusLabel().setText("Login added successfully.");
+            mainGui.getStatusLabel().setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
+
+            LoginEntry newLogin = new LoginEntry(newId, name, username, password, url, notes);
+            mainGui.getLoginData().add(newLogin);
+            mainGui.getLoginListView().getSelectionModel().select(newLogin);
+
+            nameField.clear();
+            usernameField.clear();
+            passwordField.clear();
+            urlField.clear();
+            notesField.clear();
+        } else {
+            mainGui.getStatusLabel().setText("Failed to add login.");
+            mainGui.getStatusLabel().setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
+        }
+    }
 }
+

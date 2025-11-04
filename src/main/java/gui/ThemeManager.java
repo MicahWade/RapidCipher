@@ -1,23 +1,23 @@
 package gui;
 
-import javafx.application.Platform; // Added
+import javafx.application.Platform;
 import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox; // Added
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.PasswordField;
-import javafx.scene.control.Slider; // Added
-import javafx.scene.control.Tab; // Added
-import javafx.scene.control.TabPane; // Added
+import javafx.scene.control.Slider;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Alert;
-import javafx.scene.control.Label; // Added for tab label styling
+import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.InnerShadow;
-import javafx.scene.layout.Region; // Added
+import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
 import javafx.stage.StageStyle;
 import org.kordamp.ikonli.javafx.FontIcon;
@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 public class ThemeManager {
 
     private boolean isDarkMode;
+    private boolean isBridgeEnabled = false; // ADDED: New setting
     
     private String currentBaseColor;
     private String currentBaseSemiTransparent;
@@ -60,7 +61,6 @@ public class ThemeManager {
     }
 
     private boolean isSystemDarkMode() {
-        // ... (existing code)
         String os = System.getProperty("os.name").toLowerCase();
         String command;
         boolean isDark = false;
@@ -68,7 +68,7 @@ public class ThemeManager {
         try {
             if (os.contains("win")) {
                 command = "reg query \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize\" /v AppsUseLightTheme";
-                Process process = Runtime.getRuntime().exec(new String[] {command});
+                Process process = Runtime.getRuntime().exec(command); // Removed new String[]
                 InputStreamReader iSReader = new InputStreamReader(process.getInputStream());
                 BufferedReader buffReader = new BufferedReader(iSReader);
                 String result = buffReader.lines().filter(line -> line.contains("AppsUseLightTheme")).findFirst().orElse("");
@@ -81,7 +81,7 @@ public class ThemeManager {
 
             } else if (os.contains("mac")) {
                 command = "defaults read -g AppleInterfaceStyle";
-                Process process = Runtime.getRuntime().exec(new String[] {command});
+                Process process = Runtime.getRuntime().exec(command); // Removed new String[]
                 InputStreamReader iSReader = new InputStreamReader(process.getInputStream());
                 BufferedReader buffReader = new BufferedReader(iSReader);
                 String result = buffReader.lines().findFirst().orElse("");
@@ -93,8 +93,9 @@ public class ThemeManager {
                 if (result.trim().equals("Dark")) isDark = true;
 
             } else if (os.contains("nix") || os.contains("nux")) {
+                // Using sh -c to handle shell execution properly
                 command = "gsettings get org.gnome.desktop.interface color-scheme";
-                Process process = Runtime.getRuntime().exec(new String[] {command});
+                Process process = Runtime.getRuntime().exec(new String[] {"sh", "-c", command});
                 InputStreamReader iSReader = new InputStreamReader(process.getInputStream());
                 BufferedReader buffReader = new BufferedReader(iSReader);
                 String result = buffReader.lines().findFirst().orElse("");
@@ -113,7 +114,6 @@ public class ThemeManager {
     }
 
     public void updateThemeStyles() {
-        // ... (existing code)
         if (isDarkMode) {
             currentBaseColor = "#383e46";
             currentBaseSemiTransparent = "rgba(56, 62, 70, 0.85)";
@@ -152,7 +152,6 @@ public class ThemeManager {
     }
 
     public void loadThemePreference() {
-        // ... (existing code)
         if (!Files.exists(SETTINGS_FILE)) {
             return;
         }
@@ -160,6 +159,8 @@ public class ThemeManager {
         try (InputStream in = Files.newInputStream(SETTINGS_FILE)) {
             props.load(in);
             this.isDarkMode = Boolean.parseBoolean(props.getProperty("isDarkMode", String.valueOf(this.isDarkMode)));
+            // ADDED: Load the bridge setting
+            this.isBridgeEnabled = Boolean.parseBoolean(props.getProperty("isBridgeEnabled", "false"));
         } catch (Exception e) {
             System.err.println("Failed to load theme preference: " + e.getMessage());
         }
@@ -167,9 +168,11 @@ public class ThemeManager {
     }
 
     public void saveThemePreference() {
-        // ... (existing code)
         Properties props = new Properties();
         props.setProperty("isDarkMode", String.valueOf(this.isDarkMode));
+        // ADDED: Save the bridge setting
+        props.setProperty("isBridgeEnabled", String.valueOf(this.isBridgeEnabled));
+        
         try (OutputStream out = Files.newOutputStream(SETTINGS_FILE)) {
             props.store(out, "RapidCipher User Preferences");
         } catch (Exception e) {
@@ -178,7 +181,6 @@ public class ThemeManager {
     }
     
     public TextField createStyledTextField(String prompt) {
-        // ... (existing code)
         TextField field = new TextField();
         field.setPromptText(prompt);
         styleControl(field);
@@ -186,7 +188,6 @@ public class ThemeManager {
     }
 
     public PasswordField createStyledPasswordField(String prompt) {
-        // ... (existing code)
         PasswordField field = new PasswordField();
         field.setPromptText(prompt);
         styleControl(field);
@@ -218,7 +219,6 @@ public class ThemeManager {
     }
 
     public void styleControl(TextInputControl control) {
-        // ... (existing code)
         InnerShadow darkInnerShadow = new InnerShadow(5, 1, 1, Color.web(currentDarkShadowColor));
         darkInnerShadow.setOffsetX(2);
         darkInnerShadow.setOffsetY(2);
@@ -260,21 +260,33 @@ public class ThemeManager {
         checkBox.setPadding(new javafx.geometry.Insets(5));
 
         // Simplified neumorphic style for the box
-        Region box = (Region) checkBox.lookup(".box");
-        if (box != null) {
-            box.setEffect(lightOuterShadow);
-            box.setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 3;");
-            
-            checkBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
-                if (newVal) {
+        // Must run later to ensure .box is available in the scene graph
+        Platform.runLater(() -> {
+            Region box = (Region) checkBox.lookup(".box");
+            if (box != null) {
+                box.setEffect(lightOuterShadow);
+                box.setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 3;");
+                
+                if (checkBox.isSelected()) {
                     box.setEffect(lightInnerShadow);
                     box.setStyle("-fx-background-color: " + currentControlInnerBase + "; -fx-background-radius: 3;");
                 } else {
                     box.setEffect(lightOuterShadow);
                     box.setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 3;");
                 }
-            });
-        }
+                
+                checkBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+                    if (newVal) {
+                        box.setEffect(lightInnerShadow);
+                        box.setStyle("-fx-background-color: " + currentControlInnerBase + "; -fx-background-radius: 3;");
+                    } else {
+                        box.setEffect(lightOuterShadow);
+                        box.setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 3;");
+                    }
+                });
+            }
+        });
+
         return checkBox;
     }
 
@@ -376,7 +388,6 @@ public class ThemeManager {
 
 
     public void styleWindowButton(Button button, boolean isCloseButton) {
-        // ... (existing code)
         String baseStyle = "-fx-background-color: transparent; -fx-text-fill: " + currentMutedTextColor + "; -fx-font-weight: bold; -fx-font-size: 14; -fx-background-radius: 5;";
         
         String hoverBgColor = isCloseButton ? currentErrorColor : currentControlInnerBase;
@@ -389,7 +400,6 @@ public class ThemeManager {
     }
 
     public void styleThemeToggle(ToggleButton toggle, FontIcon icon) {
-        // ... (existing code)
         if (isDarkMode) {
             icon.setIconCode(MaterialDesign.MDI_WEATHER_SUNNY);
         } else {
@@ -420,7 +430,6 @@ public class ThemeManager {
     }
     
     public <T> void styleComboBox(ComboBox<T> combo) {
-        // ... (existing code)
         String style = "-fx-background-color: " + currentControlInnerBase + "; " +
                        "-fx-background-radius: 10; " +
                        "-fx-text-fill: " + currentTextColor + "; " +
@@ -435,7 +444,7 @@ public class ThemeManager {
                 super.updateItem(item, empty); 
                 if (empty || item == null) {
                     setText(null);
-                    setStyle("-fx-background-color: " + currentControlInnerBase + ";");
+                    setStyle("-fx-background-color: " + currentControlInnerBase + "; -fx-background-radius: 10;");
                 } else { 
                     setText(item.toString());
                     setStyle("-fx-text-fill: " + currentTextColor + "; -fx-background-color: " + currentControlInnerBase + "; -fx-background-radius: 10;");
@@ -462,7 +471,6 @@ public class ThemeManager {
     }
     
     public void styleIconButton(Button button, MaterialDesign iconCode) {
-        // ... (existing code)
         FontIcon icon;
         if (button.getGraphic() instanceof FontIcon) {
             icon = (FontIcon) button.getGraphic();
@@ -502,35 +510,30 @@ public class ThemeManager {
     }
 
     public Button createCopyButton() {
-        // ... (existing code)
         Button button = new Button();
         styleIconButton(button, MaterialDesign.MDI_CONTENT_COPY);
         return button;
     }
     
     public Button createNewLoginButton() {
-        // ... (existing code)
         Button button = new Button();
         styleIconButton(button, MaterialDesign.MDI_PLUS);
         return button;
     }
     
     public Button createSettingsButton() {
-        // ... (existing code)
         Button button = new Button();
         styleIconButton(button, MaterialDesign.MDI_SETTINGS);
         return button;
     }
     
     public Button createLogoutButton() {
-        // ... (existing code)
         Button button = new Button();
         styleIconButton(button, MaterialDesign.MDI_LOGOUT);
         return button;
     }
     
     public ToggleButton createShowHideButton() {
-        // ... (existing code)
         ToggleButton showHideButton = new ToggleButton();
         FontIcon eyeIcon = new FontIcon(MaterialDesign.MDI_EYE);
         eyeIcon.setIconSize(16);
@@ -569,23 +572,36 @@ public class ThemeManager {
     }
     
     public void showErrorAlert(String title, String content) {
-        // ... (existing code)
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.initStyle(StageStyle.TRANSPARENT);
-        alert.getDialogPane().setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 15;");
-        alert.getDialogPane().setEffect(lightOuterShadow);
-        
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        
-        alert.getDialogPane().lookup(".content.label").setStyle("-fx-text-fill: " + currentTextColor + ";");
-        
-        alert.showAndWait();
+        // Ensure this runs on the JavaFX Application Thread
+        Runnable alertTask = () -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.initStyle(StageStyle.TRANSPARENT);
+            alert.getDialogPane().setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 15;");
+            alert.getDialogPane().setEffect(lightOuterShadow);
+            
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.setContentText(content);
+            
+            alert.getDialogPane().lookup(".content.label").setStyle("-fx-text-fill: " + currentTextColor + ";");
+            
+            alert.showAndWait();
+        };
+
+        if (Platform.isFxApplicationThread()) {
+            alertTask.run();
+        } else {
+            Platform.runLater(alertTask);
+        }
     }
     
     public boolean isDarkMode() { return isDarkMode; }
     public void setDarkMode(boolean isDarkMode) { this.isDarkMode = isDarkMode; }
+    
+    // ADDED: Getter and Setter for the new setting
+    public boolean isBridgeEnabled() { return isBridgeEnabled; }
+    public void setBridgeEnabled(boolean isEnabled) { this.isBridgeEnabled = isEnabled; }
+    
     public String getCurrentBaseColor() { return currentBaseColor; }
     public String getCurrentBaseSemiTransparent() { return currentBaseSemiTransparent; }
     public String getCurrentTextColor() { return currentTextColor; }
@@ -595,3 +611,4 @@ public class ThemeManager {
     public DropShadow getLightOuterShadow() { return lightOuterShadow; }
     public InnerShadow getLightInnerShadow() { return lightInnerShadow; }
 }
+
