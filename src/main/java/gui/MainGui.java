@@ -8,8 +8,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -20,61 +18,56 @@ import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 
 import org.kordamp.ikonli.javafx.FontIcon;
-import org.kordamp.ikonli.materialdesign.MaterialDesign; 
+import org.kordamp.ikonli.materialdesign.MaterialDesign;
 
 import core.Database;
 import core.Encryption;
 import core.MasterPassword;
-import core.ConfigManager; // ADDED
+import core.ConfigManager;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class MainGui extends Application {
     private static MainGui instance;
-    private Database database; // Initialized in start()
+    private Database database;
     private ObservableList<LoginEntry> loginData;
-    
+
     private ThemeManager themeManager;
+    private GuiBuilder guiBuilder;
 
     private ListView<LoginEntry> loginListView;
     private VBox detailsPane;
     private VBox addForm;
     private VBox currentDetailsForm;
-    private VBox settingsPane; 
+    private VBox settingsPane;
     private Label statusLabel;
     private StackPane root;
     private VBox mainLayout;
     private SplitPane splitPane;
     private HBox topBar;
-    
+
     private ToggleButton themeToggle;
     private FontIcon themeIcon;
-    
+
     private Label titleLabel;
-    private Button newLoginButton; 
-    private Button settingsButton; 
-    private Button logoutButton; 
+    private Button newLoginButton;
+    private Button settingsButton;
+    private Button logoutButton;
     private Button minimizeButton;
     private Button closeButton;
-    
+
     private double xOffset = 0;
     private double yOffset = 0;
-    
-    private Stage primaryStage; 
-    
+
+    private Stage primaryStage;
+
     private ConfigManager.DbConfig dbConfig;
 
-    // --- UPDATED CONSTRUCTOR ---
     public MainGui() {
         instance = this;
-        this.themeManager = new ThemeManager(); 
-        
-        // Load config on startup
+        this.themeManager = new ThemeManager();
         this.dbConfig = ConfigManager.loadConfig();
-        
-        // Database is now initialized in start() after auth
-        // Removed database initialization and try/catch block
         loginData = FXCollections.observableArrayList();
     }
 
@@ -83,108 +76,96 @@ public class MainGui extends Application {
     }
 
     private void updateAllStyles() {
-        
         root.setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 20;");
         mainLayout.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + "; -fx-background-radius: 15;");
         mainLayout.setEffect(themeManager.getLightOuterShadow());
-        
+
         splitPane.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
         loginListView.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
         detailsPane.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
-        
+
         statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
-        
         titleLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
-        
-        // Re-style all top-bar icon buttons
+
         themeManager.styleThemeToggle(themeToggle, themeIcon);
         themeManager.styleIconButton(newLoginButton, MaterialDesign.MDI_PLUS);
         themeManager.styleIconButton(settingsButton, MaterialDesign.MDI_SETTINGS);
         themeManager.styleIconButton(logoutButton, MaterialDesign.MDI_LOGOUT);
-        
+
         themeManager.styleWindowButton(minimizeButton, false);
         themeManager.styleWindowButton(closeButton, true);
 
-        // UPDATED: Rebuild the visible pane to apply new styles
         if (settingsPane != null && detailsPane.getChildren().get(0) == settingsPane) {
-            settingsPane = buildSettingsPane(); // Rebuild
-            detailsPane.getChildren().setAll(settingsPane); // Re-set
+            settingsPane = guiBuilder.buildSettingsPane();
+            detailsPane.getChildren().setAll(settingsPane);
         } else if (loginListView.getSelectionModel().getSelectedItem() == null) {
-            // Check if addForm is the one visible, or just default to it
             if (addForm == null || detailsPane.getChildren().get(0) == addForm) {
-                addForm = buildAddForm(); // Rebuild
-                detailsPane.getChildren().setAll(addForm); // Re-set
+                addForm = guiBuilder.buildAddForm();
+                detailsPane.getChildren().setAll(addForm);
             }
         } else {
-            currentDetailsForm = buildDetailsForm(loginListView.getSelectionModel().getSelectedItem()); // Rebuild
-            detailsPane.getChildren().setAll(currentDetailsForm); // Re-set
+            currentDetailsForm = guiBuilder.buildDetailsForm(loginListView.getSelectionModel().getSelectedItem());
+            detailsPane.getChildren().setAll(currentDetailsForm);
         }
 
         loginListView.refresh();
     }
 
-    // --- UPDATED START METHOD ---
     @Override
     public void start(Stage primaryStage) {
-        
-        this.primaryStage = primaryStage; 
-        
+        this.primaryStage = primaryStage;
         themeManager.loadThemePreference();
 
         AuthManager authManager = new AuthManager(themeManager);
-        
         boolean proceed = false;
         try {
-            // Show auth prompt to get the MasterKey
             proceed = authManager.showMasterPasswordPrompt();
-            
         } catch (Exception e) {
             e.printStackTrace();
             themeManager.showErrorAlert("Fatal Error", "Failed to initialize encryption settings.\n" + e.getMessage());
         }
-        
+
         if (!proceed) {
             Platform.exit();
             return;
         }
 
-        // --- DATABASE INITIALIZATION MOVED HERE ---
-        // Now that we are authenticated, MasterPassword.getKey() is available
-        // for Database class to use for decryption (if needed).
         try {
-            database = Database.getInstance(dbConfig); // Pass the loaded config
+            database = Database.getInstance(dbConfig);
         } catch (Exception e) {
             e.printStackTrace();
             themeManager.showErrorAlert("Database Connection Failed",
-                "Could not connect to the database: " + e.getMessage() + "\n" +
-                "Please check your settings in config.properties or the Settings menu. " +
-                "If you just changed settings, please restart.");
+                    "Could not connect to the database: " + e.getMessage() + "\n" +
+                            "Please check your settings in config.properties or the Settings menu. " +
+                            "If you just changed settings, please restart.");
             Platform.exit();
             return;
         }
-        // --- END OF MOVED BLOCK ---
-
 
         primaryStage.setTitle("Rapid Cipher");
         primaryStage.initStyle(StageStyle.TRANSPARENT);
-        
-        loadDataFromDatabase(); // Now this can safely run
+
+        loadDataFromDatabase();
 
         loginListView = new ListView<>();
         loginListView.setItems(loginData);
-
-        loginListView.setCellFactory(lv -> new LoginListCell(themeManager)); 
+        loginListView.setCellFactory(lv -> new LoginListCell(themeManager));
         loginListView.setPrefWidth(280);
         loginListView.setMinWidth(200);
 
         detailsPane = new VBox(15);
         detailsPane.setPadding(new Insets(20));
-        
+
+        statusLabel = new Label("Welcome to RapidCipher!");
+        statusLabel.setPadding(new Insets(0, 0, 0, 10));
+
+        this.guiBuilder = new GuiBuilder(this, themeManager);
+
         showAddForm();
 
         loginListView.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
             if (newSelection != null) {
-                currentDetailsForm = buildDetailsForm(newSelection);
+                currentDetailsForm = guiBuilder.buildDetailsForm(newSelection);
                 detailsPane.getChildren().setAll(currentDetailsForm);
             } else {
                 showAddForm();
@@ -193,32 +174,30 @@ public class MainGui extends Application {
 
         titleLabel = new Label("RapidCipher");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
-        
-        // --- Create buttons using the ThemeManager ---
+
         themeIcon = new FontIcon();
         themeToggle = new ToggleButton();
         themeToggle.setGraphic(themeIcon);
         themeToggle.setSelected(themeManager.isDarkMode());
-        
+
         newLoginButton = themeManager.createNewLoginButton();
         settingsButton = themeManager.createSettingsButton();
         logoutButton = themeManager.createLogoutButton();
-        
-        // --- Set Actions ---
+
         themeToggle.setOnAction(e -> {
             themeManager.setDarkMode(themeToggle.isSelected());
             themeManager.updateThemeStyles();
             themeManager.saveThemePreference();
-            updateAllStyles(); // Re-style the GUI
+            updateAllStyles();
         });
-        
+
         newLoginButton.setOnAction(e -> showAddForm());
         settingsButton.setOnAction(e -> showSettingsPane());
         logoutButton.setOnAction(e -> logout());
 
         minimizeButton = new Button(" _ ");
         minimizeButton.setOnAction(e -> primaryStage.setIconified(true));
-        
+
         closeButton = new Button(" X ");
         closeButton.setOnAction(e -> primaryStage.close());
 
@@ -233,7 +212,7 @@ public class MainGui extends Application {
             xOffset = event.getSceneX();
             yOffset = event.getSceneY();
         });
-        
+
         topBar.setOnMouseDragged(event -> {
             primaryStage.setX(event.getScreenX() - xOffset);
             primaryStage.setY(event.getScreenY() - yOffset);
@@ -243,9 +222,6 @@ public class MainGui extends Application {
         splitPane.setDividerPositions(0.35);
         VBox.setVgrow(splitPane, Priority.ALWAYS);
 
-        statusLabel = new Label("Welcome to RapidCipher!");
-        statusLabel.setPadding(new Insets(0, 0, 0, 10));
-
         mainLayout = new VBox(15);
         mainLayout.setPadding(new Insets(10));
         mainLayout.getChildren().addAll(topBar, splitPane, statusLabel);
@@ -254,288 +230,42 @@ public class MainGui extends Application {
 
         root = new StackPane(mainLayout);
         root.setPadding(new Insets(20));
-        
+
         Scene scene = new Scene(root, 1000, 700);
         scene.setFill(Color.TRANSPARENT);
-                
+
         primaryStage.setScene(scene);
         primaryStage.setMinWidth(800);
         primaryStage.setMinHeight(600);
-        
-        // --- Initial Style ---
+
         updateAllStyles();
-        
+
         primaryStage.show();
     }
-    
+
     private void showAddForm() {
         loginListView.getSelectionModel().clearSelection();
-        addForm = buildAddForm(); // Rebuild to get fresh button styles
+        addForm = guiBuilder.buildAddForm();
         detailsPane.getChildren().setAll(addForm);
     }
-    
+
     private void showSettingsPane() {
         loginListView.getSelectionModel().clearSelection();
-        settingsPane = buildSettingsPane(); // Always rebuild in case styles changed
+        settingsPane = guiBuilder.buildSettingsPane();
         detailsPane.getChildren().setAll(settingsPane);
     }
-    
-    // --- HEAVILY UPDATED buildSettingsPane ---
-    private VBox buildSettingsPane() {
-        VBox pane = new VBox(15); // Use 15 spacing
-        pane.setPadding(new Insets(10));
-        
-        Label title = new Label("Settings");
-        title.setFont(Font.font("System", FontWeight.BOLD, 18));
-        title.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
-        
-        // --- Database Settings ---
-        Label dbTitle = new Label("Database Configuration");
-        dbTitle.setFont(Font.font("System", FontWeight.BOLD, 16));
-        dbTitle.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
 
-        Label dbTypeLabel = new Label("Database Type:");
-        dbTypeLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
-        ComboBox<String> dbTypeBox = new ComboBox<>();
-        dbTypeBox.setItems(FXCollections.observableArrayList("SQLITE", "MYSQL"));
-        themeManager.styleComboBox(dbTypeBox); // Apply theme
-        
-        GridPane remoteFields = new GridPane();
-        remoteFields.setHgap(10);
-        remoteFields.setVgap(10);
-
-        TextField hostField = themeManager.createStyledTextField("Host (e.g., 127.0.0.1)");
-        TextField portField = themeManager.createStyledTextField("Port (e.g., 3306)");
-        TextField dbNameField = themeManager.createStyledTextField("Database Name");
-        TextField userField = themeManager.createStyledTextField("Username");
-        PasswordField passField = themeManager.createStyledPasswordField("Password");
-
-        remoteFields.add(new Label("Host:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 0);
-        remoteFields.add(hostField, 1, 0);
-        remoteFields.add(new Label("Port:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 1);
-        remoteFields.add(portField, 1, 1);
-        remoteFields.add(new Label("DB Name:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 2);
-        remoteFields.add(dbNameField, 1, 2);
-        remoteFields.add(new Label("User:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 3);
-        remoteFields.add(userField, 1, 3);
-        remoteFields.add(new Label("Password:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 4);
-        remoteFields.add(passField, 1, 4);
-
-        // --- DECRYPT VALUES BEFORE DISPLAYING ---
-        // Create a temporary config object to hold decrypted values for display
-        ConfigManager.DbConfig displayConfig = dbConfig;
-        if (dbConfig.dbType().equals("MYSQL")) {
-            try {
-                String host = Encryption.decryptWithIV(dbConfig.host(), MasterPassword.getKey());
-                String port = Encryption.decryptWithIV(dbConfig.port(), MasterPassword.getKey());
-                String dbName = Encryption.decryptWithIV(dbConfig.dbName(), MasterPassword.getKey());
-                String user = Encryption.decryptWithIV(dbConfig.user(), MasterPassword.getKey());
-                String pass = Encryption.decryptWithIV(dbConfig.pass(), MasterPassword.getKey());
-                displayConfig = new ConfigManager.DbConfig("MYSQL", host, port, dbName, user, pass);
-            } catch (Exception e) {
-                System.err.println("Could not decrypt config to display in settings: " + e.getMessage());
-                // If decryption fails, show blank fields instead of encrypted garbage
-                displayConfig = new ConfigManager.DbConfig("MYSQL", "", "", "", "", "");
-            }
-        }
-
-        // --- Set initial values from (potentially decrypted) config ---
-        dbTypeBox.setValue(displayConfig.dbType());
-        hostField.setText(displayConfig.host());
-        portField.setText(displayConfig.port());
-        dbNameField.setText(displayConfig.dbName());
-        userField.setText(displayConfig.user());
-        passField.setText(displayConfig.pass());
-
-
-        remoteFields.setVisible(dbConfig.dbType().equals("MYSQL"));
-        dbTypeBox.valueProperty().addListener((obs, oldVal, newVal) -> {
-            remoteFields.setVisible(newVal.equals("MYSQL"));
-        });
-        
-        Label restartLabel = new Label("Restart required to apply database changes.");
-        restartLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + "; -fx-font-weight: bold;");
-        restartLabel.setVisible(false);
-       
-
-        Button saveButton = themeManager.createStyledButton("Save Database Settings");
-        saveButton.setOnAction(e -> {
-            ConfigManager.DbConfig newConfig = new ConfigManager.DbConfig(
-                dbTypeBox.getValue(),
-                hostField.getText(),
-                portField.getText(),
-                dbNameField.getText(),
-                userField.getText(),
-                passField.getText()
-            );
-            ConfigManager.saveConfig(newConfig); 
-            
-            this.dbConfig = ConfigManager.loadConfig(); 
-            
-            restartLabel.setVisible(true);
-            statusLabel.setText("Settings saved. Please restart.");
-            statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
-        });
-
-        pane.getChildren().addAll(
-            title, 
-            dbTitle, 
-            new HBox(10, dbTypeLabel, dbTypeBox),
-            remoteFields,
-            saveButton,
-            restartLabel
-        ); 
-        
-        // Make fields fill width
-        hostField.setMaxWidth(Double.MAX_VALUE);
-        portField.setMaxWidth(Double.MAX_VALUE);
-        dbNameField.setMaxWidth(Double.MAX_VALUE);
-        userField.setMaxWidth(Double.MAX_VALUE);
-        passField.setMaxWidth(Double.MAX_VALUE);
-        GridPane.setHgrow(hostField, Priority.ALWAYS);
-        GridPane.setHgrow(portField, Priority.ALWAYS);
-        GridPane.setHgrow(dbNameField, Priority.ALWAYS);
-        GridPane.setHgrow(userField, Priority.ALWAYS);
-        GridPane.setHgrow(passField, Priority.ALWAYS);
-        
-        return pane;
-    }
-    
-    private VBox buildAddForm() {
-        VBox form = new VBox(15);
-        form.setPadding(new Insets(10));
-        
-        Label title = new Label("Add New Login");
-        title.setFont(Font.font("System", FontWeight.BOLD, 18));
-        title.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
-
-        TextField nameField = themeManager.createStyledTextField("Name");
-        TextField usernameField = themeManager.createStyledTextField("Username");
-        
-        PasswordField passwordField = themeManager.createStyledPasswordField("Password");
-        TextField visiblePasswordField = themeManager.createStyledTextField("Password");
-        visiblePasswordField.textProperty().bindBidirectional(passwordField.textProperty());
-        visiblePasswordField.setVisible(false);
-        
-        StackPane passStack = new StackPane(passwordField, visiblePasswordField);
-        StackPane.setAlignment(visiblePasswordField, Pos.CENTER_LEFT);
-        StackPane.setAlignment(passwordField, Pos.CENTER_LEFT);
-
-        // This button is created fresh, so it will get the new theme colors
-        ToggleButton showHidePassButton = themeManager.createShowHideButton(); 
-        showHidePassButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
-            visiblePasswordField.setVisible(newVal);
-            passwordField.setVisible(!newVal);
-        });
-        
-        HBox passBox = new HBox(10, passStack, showHidePassButton);
-        HBox.setHgrow(passStack, Priority.ALWAYS);
-
-        TextField urlField = themeManager.createStyledTextField("URL");
-        TextField notesField = themeManager.createStyledTextField("Notes");
-        notesField.setPrefHeight(80);
-
-        Button addButton = themeManager.createStyledButton("Add Login");
-        
-        addButton.setOnAction(e -> addLogin(nameField, usernameField, passwordField, urlField, notesField));
-        
-        form.getChildren().addAll(title, nameField, usernameField, passBox, urlField, notesField, addButton);
-        return form;
-    }
-
-    private VBox buildDetailsForm(LoginEntry login) {
-        VBox form = new VBox(15);
-        form.setPadding(new Insets(10));
-
-        Label title = new Label(login.getName());
-        title.setFont(Font.font("System", FontWeight.BOLD, 18));
-        title.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
-
-        TextField nameDisplay = themeManager.createStyledTextField("Name");
-        nameDisplay.setText(login.getName());
-        nameDisplay.setEditable(false);
-
-        TextField userDisplay = themeManager.createStyledTextField("Username");
-        userDisplay.setText(login.getUsername());
-        userDisplay.setEditable(false);
-        
-        // This button is created fresh, so it will get the new theme colors
-        Button copyUserButton = themeManager.createCopyButton(); 
-        copyUserButton.setOnAction(e -> {
-            Clipboard clipboard = Clipboard.getSystemClipboard();
-            ClipboardContent content = new ClipboardContent();
-            content.putString(login.getUsername());
-            clipboard.setContent(content);
-            statusLabel.setText("Username copied to clipboard.");
-            statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
-        });
-        
-        HBox userBox = new HBox(10, userDisplay, copyUserButton);
-        userBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(userDisplay, Priority.ALWAYS); 
-
-        TextField passDisplay = themeManager.createStyledTextField("Password");
-        passDisplay.setText("************");
-        passDisplay.setEditable(false);
-        
-        // This button is created fresh, so it will get the new theme colors
-        ToggleButton showHideButton = themeManager.createShowHideButton(); 
-        showHideButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal) {
-                passDisplay.setText(login.getPassword());
-            } else {
-                passDisplay.setText("************");
-            }
-        });
-        
-        // This button is created fresh, so it will get the new theme colors
-        Button copyPassButton = themeManager.createCopyButton(); 
-        copyPassButton.setOnAction(e -> {
-            Clipboard clipboard = Clipboard.getSystemClipboard();
-            ClipboardContent content = new ClipboardContent();
-            content.putString(login.getPassword()); 
-            clipboard.setContent(content);
-            statusLabel.setText("Password copied to clipboard.");
-            statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
-        });
-        
-        HBox passBox = new HBox(10, passDisplay, showHideButton, copyPassButton);
-        passBox.setAlignment(Pos.CENTER);
-        HBox.setHgrow(passDisplay, Priority.ALWAYS);
-
-        TextField urlDisplay = themeManager.createStyledTextField("URL");
-        urlDisplay.setText(login.getUrl());
-        urlDisplay.setEditable(false);
-
-        TextArea notesDisplay = new TextArea(login.getNotes());
-        notesDisplay.setPromptText("Notes");
-        themeManager.styleControl(notesDisplay);
-        notesDisplay.setEditable(false);
-        notesDisplay.setWrapText(true);
-        notesDisplay.setPrefHeight(80);
-
-        Button deleteButton = themeManager.createStyledButton("Delete");
-        deleteButton.setStyle(deleteButton.getStyle() + "-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
-        deleteButton.setOnAction(e -> deleteLogin(login));
-        
-        HBox buttonBar = new HBox(10, deleteButton);
-        
-        form.getChildren().addAll(title, nameDisplay, userBox, passBox, urlDisplay, notesDisplay, buttonBar);
-        return form;
-    }
-    
     private void loadDataFromDatabase() {
-        // This check is important in case startup failed
         if (database == null) {
             System.err.println("Database is null, cannot load data.");
             return;
         }
-        
+
         loginData.clear();
         try {
-            ResultSet rs = database.searchLogins(); 
+            ResultSet rs = database.searchLogins();
             while (rs != null && rs.next()) {
-                
+
                 long id = rs.getLong("id");
                 String plainTextName = "!!DECRYPT_ERROR!!";
                 String plainTextUser = "!!DECRYPT_ERROR!!";
@@ -560,16 +290,16 @@ public class MainGui extends Application {
                         plainTextUser,
                         plainTextPass,
                         plainTextUrl,
-                        plainTextNotes
-                ));
+                        plainTextNotes));
             }
-            if (rs != null) rs.close();
+            if (rs != null)
+                rs.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-    private void addLogin(TextField nameField, TextField usernameField, PasswordField passwordField, TextField urlField, TextField notesField) {
+    void addLogin(TextField nameField, TextField usernameField, PasswordField passwordField, TextField urlField, TextField notesField) {
         String name = nameField.getText();
         String username = usernameField.getText();
         String password = passwordField.getText();
@@ -583,15 +313,15 @@ public class MainGui extends Application {
         }
 
         long newId = database.createLogin(name, username, password, url, notes);
-        
+
         if (newId != -1) {
             statusLabel.setText("Login added successfully.");
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
-            
-            LoginEntry newLogin = new LoginEntry(newId, name, username, password, url, notes); 
+
+            LoginEntry newLogin = new LoginEntry(newId, name, username, password, url, notes);
             loginData.add(newLogin);
             loginListView.getSelectionModel().select(newLogin);
-            
+
             nameField.clear();
             usernameField.clear();
             passwordField.clear();
@@ -602,8 +332,8 @@ public class MainGui extends Application {
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
         }
     }
-    
-    private void deleteLogin(LoginEntry login) {
+
+    void deleteLogin(LoginEntry login) {
         boolean success = database.deleteLogin(login.getId());
         if (success) {
             statusLabel.setText("Login deleted successfully.");
@@ -615,25 +345,26 @@ public class MainGui extends Application {
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
         }
     }
-    
-    private void logout() {
-        // 1. Clear the sensitive data
-        MasterPassword.setKey(null); // Clear the static key
-        loginData.clear(); // Clear the observable list
-        loginListView.refresh();
-        showAddForm(); // Reset view to default
-        
-        // 2. Hide the main window
-        primaryStage.hide();
-        
-        // 3. Clear database instance
-        // This is a bit brute-force, but we need to ensure the next login
-        // re-initializes the database, potentially with new (decrypted) credentials
-        // A cleaner way would be to have a database.close() method.
-        // For now, nulling the instance in MainGui is simplest.
-        database = null; // Force re-initialization on next login
 
-        // 4. Re-show the authentication prompt
+    void saveDbSettings(ConfigManager.DbConfig newConfig, Label restartLabel) {
+        ConfigManager.saveConfig(newConfig);
+        this.dbConfig = ConfigManager.loadConfig();
+        restartLabel.setVisible(true);
+        statusLabel.setText("Settings saved. Please restart.");
+        statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
+    }
+
+    private void logout() {
+        MasterPassword.setKey(null);
+        loginData.clear();
+        loginListView.refresh();
+        showAddForm();
+
+        primaryStage.hide();
+
+        // Force re-initialization on next login
+        database = null;
+
         AuthManager authManager = new AuthManager(themeManager);
         boolean proceed = false;
         try {
@@ -642,12 +373,10 @@ public class MainGui extends Application {
             e.printStackTrace();
             themeManager.showErrorAlert("Fatal Error", "Failed to initialize encryption settings.\n" + e.getMessage());
         }
-        
-        // 5. Decide what to do
+
         if (proceed) {
-            // Re-initialize database and re-load data
             try {
-                this.dbConfig = ConfigManager.loadConfig(); // Re-load config in case it changed
+                this.dbConfig = ConfigManager.loadConfig();
                 database = Database.getInstance(dbConfig);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -655,12 +384,19 @@ public class MainGui extends Application {
                 Platform.exit();
                 return;
             }
-            
+
             loadDataFromDatabase();
             primaryStage.show();
         } else {
-            // User cancelled login, so exit the app
             Platform.exit();
         }
+    }
+
+    public Label getStatusLabel() {
+        return statusLabel;
+    }
+
+    public ConfigManager.DbConfig getDbConfig() {
+        return dbConfig;
     }
 }

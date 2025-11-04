@@ -12,9 +12,8 @@ public class ConfigManager {
     private static final String DB_DIR_PATH = System.getProperty("user.home") + "/Documents/RapidCipher";
     private static final Path CONFIG_FILE = Paths.get(DB_DIR_PATH, "config.properties");
     
-    // This record holds the in-memory config
     public record DbConfig(
-        String dbType, // "SQLITE" or "MYSQL"
+        String dbType,
         String host,
         String port,
         String dbName,
@@ -25,7 +24,6 @@ public class ConfigManager {
     public static DbConfig loadConfig() {
         Properties props = new Properties();
         
-        // Set defaults first
         String dbType = "SQLITE";
         String host = "";
         String port = "3306";
@@ -41,20 +39,17 @@ public class ConfigManager {
                 port = props.getProperty("db.port", "3306");
                 dbName = props.getProperty("db.name", "rapidcipher");
                 user = props.getProperty("db.user", "");
-                pass = props.getProperty("db.pass", ""); // This value may be encrypted
+                pass = props.getProperty("db.pass", "");
             } catch (Exception e) {
                 System.err.println("Failed to load config file, using defaults: " + e.getMessage());
             }
         } else {
-            // If file doesn't exist, create it with defaults
-            // Note: This initial save will not be encrypted as master key doesn't exist yet
             saveConfig(new DbConfig(dbType, host, port, dbName, user, pass));
         }
 
         return new DbConfig(dbType, host, port, dbName, user, pass);
     }
 
-    // --- UPDATED METHOD ---
     public static void saveConfig(DbConfig config) {
         Properties props = new Properties();
         props.setProperty("db.type", config.dbType());
@@ -62,7 +57,6 @@ public class ConfigManager {
         String warning = "RapidCipher Database Configuration\n";
         
         if (config.dbType().equals("MYSQL")) {
-            // Encrypt MySQL credentials
             try {
                 props.setProperty("db.host", Encryption.encryptWithIV(config.host(), MasterPassword.getKey()));
                 props.setProperty("db.port", Encryption.encryptWithIV(config.port(), MasterPassword.getKey()));
@@ -72,11 +66,7 @@ public class ConfigManager {
                 warning += "MySQL credentials are encrypted.\n";
 
             } catch (IllegalStateException e) {
-                // This might happen if user saves before logging in (e.g. first run)
-                // But settings pane isn't visible then. This is a safeguard.
                 System.err.println("Cannot save config: Master key is not available. " + e.getMessage());
-                // In this case, we might save plain text, or better, just fail.
-                // For now, we'll just not save the sensitive parts if key is missing
                 props.setProperty("db.host", config.host());
                 props.setProperty("db.port", config.port());
                 props.setProperty("db.name", config.dbName());
@@ -86,11 +76,9 @@ public class ConfigManager {
 
             } catch (Exception e) {
                 System.err.println("Failed to encrypt config: " + e.getMessage());
-                // Don't save partial/bad data
                 return;
             }
         } else {
-            // For SQLite, just save plain text (as it's mostly empty anyway)
             props.setProperty("db.host", config.host());
             props.setProperty("db.port", config.port());
             props.setProperty("db.name", config.dbName());

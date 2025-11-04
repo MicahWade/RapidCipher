@@ -22,17 +22,14 @@ public class Database {
             String dbUrl;
             
             if (config.dbType().equals("MYSQL")) {
-                // Connect to remote MySQL database
                 System.out.println("Connecting to MySQL database...");
                 try {
-                    // Ensure the driver is loaded
                     Class.forName("com.mysql.cj.jdbc.Driver");
                 } catch (ClassNotFoundException e) {
                     System.err.println("MySQL JDBC Driver not found. Add it to pom.xml.");
                     throw new SQLException("MySQL Driver not found", e);
                 }
                 
-                // --- DECRYPT CREDENTIALS ---
                 String host = "";
                 String port = "";
                 String dbName = "";
@@ -51,14 +48,13 @@ public class Database {
                 }
                 
                 dbUrl = "jdbc:mysql://" + host + ":" + port + "/" + dbName +
-                        "?useSSL=true&requireSSL=true"; // Force SSL
+                        "?useSSL=true&requireSSL=true";
                 
                 System.out.println("Connecting to MySQL at " + dbUrl);
                 connection = DriverManager.getConnection(dbUrl, user, pass);
                 System.out.println("Connected to MySQL.");
 
             } else {
-                // Default to local SQLite database
                 System.out.println("Connecting to SQLite database...");
                 Path dbPath = Paths.get(SQLITE_DB_PATH);
                 Path parentDir = dbPath.getParent();
@@ -71,21 +67,19 @@ public class Database {
                 System.out.println("Connected to SQLite at " + dbUrl);
             }
 
-            checkAndCreateloginsTable(config.dbType()); // Pass dbType
+            checkAndCreateloginsTable(config.dbType());
         } catch (SQLException e) {
             e.printStackTrace();
             throw e;
         } catch (Exception e) {
-            // Catch IOException or others
             System.err.println("Failed to create directories or connect: " + e.getMessage());
             throw new SQLException(e);
         }
     }
 
-    // --- UPDATED METHOD ---
     private void checkAndCreateloginsTable(String dbType) throws SQLException {
         if (!doesTableExist("logins") || !isPasswordTableSchemaCorrect()) {
-            createloginsTable(dbType); // Pass dbType
+            createloginsTable(dbType);
         }
     }
 
@@ -97,7 +91,6 @@ public class Database {
     }
 
     private boolean isPasswordTableSchemaCorrect() throws SQLException {
-        // Check for 'id' as well
         String[] requiredColumns = { "id", "name", "username", "password", "url", "notes" };
         DatabaseMetaData meta = connection.getMetaData();
         try (ResultSet columns = meta.getColumns(null, null, "logins", null)) {
@@ -115,14 +108,11 @@ public class Database {
         }
     }
 
-    // --- UPDATED METHOD ---
     private void createloginsTable(String dbType) throws SQLException {
         
         String createTableSQL;
         
         if (dbType.equals("MYSQL")) {
-             // MySQL specific-syntax (e.g., auto_increment)
-             // Using TEXT as blob-like storage for the encrypted base64 strings
             createTableSQL = "CREATE TABLE IF NOT EXISTS logins (" +
                 "id BIGINT PRIMARY KEY AUTO_INCREMENT, " +
                 "name TEXT NOT NULL, " +
@@ -131,7 +121,6 @@ public class Database {
                 "url TEXT, " +
                 "notes TEXT);";
         } else {
-            // SQLite syntax
             createTableSQL = "CREATE TABLE IF NOT EXISTS logins (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "name TEXT NOT NULL, " +
@@ -147,7 +136,6 @@ public class Database {
         }
     }
 
-    // --- UPDATED METHOD ---
     public static synchronized Database getInstance(ConfigManager.DbConfig config) throws SQLException {
         if (instance == null) {
             instance = new Database(config);
@@ -155,13 +143,10 @@ public class Database {
         return instance;
     }
 
-    // Create a new login entry
-    // UPDATED: Now accepts plain-text password, encrypts ALL fields, and returns the new row's ID
     public long createLogin(String name, String username, String password, String url, String notes) {
         String sql = "INSERT INTO logins (name, username, password, url, notes) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
-            // Encrypt all 5 fields
             pstmt.setString(1, Encryption.encryptWithIV(name, MasterPassword.getKey()));
             pstmt.setString(2, Encryption.encryptWithIV(username, MasterPassword.getKey()));
             pstmt.setString(3, Encryption.encryptWithIV(password, MasterPassword.getKey()));
@@ -173,22 +158,20 @@ public class Database {
             if (affectedRows > 0) {
                 try (ResultSet rs = pstmt.getGeneratedKeys()) {
                     if (rs.next()) {
-                        return rs.getLong(1); // Return the new ID
+                        return rs.getLong(1);
                     }
                 }
             }
-            return -1; // Failure
+            return -1;
         } catch (SQLException e) {
             System.err.println("Create login failed: " + e.getMessage());
-            return -1; // Failure
+            return -1;
         } catch (Exception e) {
             System.err.println("Encryption failed during create: " + e.getMessage());
-            return -1; // Failure
+            return -1;
         }
     }
 
-    // Delete a login by its unique ID
-    // UPDATED: Signature now takes a long id
     public boolean deleteLogin(long id) {
         String sql = "DELETE FROM logins WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -201,7 +184,6 @@ public class Database {
         }
     }
 
-    // UPDATED: Removed searchTerm, this method now just gets ALL logins
     public ResultSet searchLogins() {
         String sql = "SELECT id, name, username, password, url, notes FROM logins";
         try {

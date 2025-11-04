@@ -1,18 +1,18 @@
 package gui;
 
 import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox; 
-import javafx.scene.control.ListCell; // <-- Import is already here, just was an error in the code
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextArea; 
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ToggleButton;
-import javafx.scene.control.Alert; 
+import javafx.scene.control.Alert;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.InnerShadow;
 import javafx.scene.paint.Color;
-import javafx.stage.StageStyle; 
+import javafx.stage.StageStyle;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 
@@ -154,8 +154,6 @@ public class ThemeManager {
         }
     }
     
-    // --- Styling Helpers ---
-
     public TextField createStyledTextField(String prompt) {
         TextField field = new TextField();
         field.setPromptText(prompt);
@@ -241,7 +239,7 @@ public class ThemeManager {
         } else {
             icon.setIconCode(MaterialDesign.MDI_WEATHER_NIGHT);
         }
-        icon.setIconColor(Color.web(currentTextColor)); // Use text color for visibility
+        icon.setIconColor(Color.web(currentTextColor));
         icon.setIconSize(16);
 
         String style = "-fx-background-color: " + currentBaseColor + "; " +
@@ -253,7 +251,6 @@ public class ThemeManager {
         toggle.setPrefSize(35, 35);
         toggle.setMinSize(35, 35);
         
-        // Re-set listeners to capture new theme colors
         toggle.setOnMousePressed(e -> {
             toggle.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";");
             toggle.setEffect(lightInnerShadow);
@@ -263,53 +260,43 @@ public class ThemeManager {
             toggle.setEffect(toggle.isSelected() ? lightInnerShadow : lightOuterShadow);
         });
 
-        // Set current effect based on selection
         toggle.setEffect(toggle.isSelected() ? lightInnerShadow : lightOuterShadow);
     }
     
-    // --- UPDATED METHOD ---
     public <T> void styleComboBox(ComboBox<T> combo) {
         String style = "-fx-background-color: " + currentControlInnerBase + "; " +
                        "-fx-background-radius: 10; " +
-                       "-fx-text-fill: " + currentTextColor + "; " + // Text fill for the button
+                       "-fx-text-fill: " + currentTextColor + "; " +
                        "-fx-border-width: 0;";
         
         combo.setStyle(style);
         combo.setEffect(lightInnerShadow);
         
-        // --- FIX 1: Style the Button Cell (the selected item) ---
-        // This is what renders the selected item in the box
         combo.setButtonCell(new ListCell<T>() {
             @Override
             protected void updateItem(T item, boolean empty) {
                 super.updateItem(item, empty); 
                 if (empty || item == null) {
                     setText(null);
-                    // Match the combo box background
                     setStyle("-fx-background-color: " + currentControlInnerBase + ";");
                 } else { 
                     setText(item.toString());
-                    // Set the text color and background for the button cell
                     setStyle("-fx-text-fill: " + currentTextColor + "; -fx-background-color: " + currentControlInnerBase + "; -fx-background-radius: 10;");
                 }
             }
         });
         
-        // --- FIX 2: Style the Dropdown Cells ---
-        // This styles the items in the list when it's opened
         combo.setCellFactory(lv -> new ListCell<T>() {
             @Override
             protected void updateItem(T item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) {
                     setText(null);
-                    setStyle("-fx-background-color: " + currentBaseColor); // Default background
+                    setStyle("-fx-background-color: " + currentBaseColor);
                 } else {
                     setText(item.toString());
-                    // Style for non-selected, non-hovered list items
                     setStyle("-fx-background-color: " + currentBaseColor + "; -fx-text-fill: " + currentTextColor + ";");
                     
-                    // Add hover effect for clarity
                     setOnMouseEntered(e -> setStyle("-fx-background-color: " + currentControlInnerBase + "; -fx-text-fill: " + currentTextColor + ";"));
                     setOnMouseExited(e -> setStyle("-fx-background-color: " + currentBaseColor + "; -fx-text-fill: " + currentTextColor + ";"));
                 }
@@ -317,10 +304,8 @@ public class ThemeManager {
         });
     }
     
-    // --- NEW PUBLIC STYLING METHOD ---
     public void styleIconButton(Button button, MaterialDesign iconCode) {
         FontIcon icon;
-        // Ensure button has a FontIcon graphic
         if (button.getGraphic() instanceof FontIcon) {
             icon = (FontIcon) button.getGraphic();
         } else {
@@ -330,29 +315,26 @@ public class ThemeManager {
         
         icon.setIconCode(iconCode);
         icon.setIconSize(16);
-        icon.setIconColor(Color.web(currentMutedTextColor)); // Use current theme color
+        icon.setIconColor(Color.web(currentMutedTextColor));
 
-        String style = "-fx-background-color: " + currentBaseColor + "; " + // Use current theme color
+        String style = "-fx-background-color: " + currentBaseColor + "; " +
                        "-fx-background-radius: 10; " +
                        "-fx-background-insets: 0;";
         button.setStyle(style);
-        button.setEffect(lightOuterShadow); // Use current theme effect
+        button.setEffect(lightOuterShadow);
         
         button.setPrefSize(35, 35);
         button.setMinSize(35, 35);
 
-        // Re-set listeners to capture new theme colors
         button.setOnMousePressed(e -> {
-            button.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";"); // Use current theme color
-            button.setEffect(lightInnerShadow); // Use current theme effect
+            button.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";");
+            button.setEffect(lightInnerShadow);
         });
         button.setOnMouseReleased(e -> {
             button.setStyle(style);
-            button.setEffect(lightOuterShadow); // Use current theme effect
+            button.setEffect(lightOuterShadow);
         });
     }
-
-    // --- UPDATED Create Methods to use the Styler ---
 
     public Button createCopyButton() {
         Button button = new Button();
@@ -382,7 +364,7 @@ public class ThemeManager {
         ToggleButton showHideButton = new ToggleButton();
         FontIcon eyeIcon = new FontIcon(MaterialDesign.MDI_EYE);
         eyeIcon.setIconSize(16);
-        eyeIcon.setIconColor(Color.web(currentMutedTextColor)); // Set initial color
+        eyeIcon.setIconColor(Color.web(currentMutedTextColor));
         showHideButton.setGraphic(eyeIcon);
 
         String style = "-fx-background-color: " + currentBaseColor + "; " +
@@ -405,7 +387,6 @@ public class ThemeManager {
             showHideButton.setEffect(lightOuterShadow);
         });
 
-        // Add listener to change icon
         showHideButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal) {
                 eyeIcon.setIconCode(MaterialDesign.MDI_EYE_OFF);
@@ -432,7 +413,6 @@ public class ThemeManager {
         alert.showAndWait();
     }
     
-    // --- Getters ---
     public boolean isDarkMode() { return isDarkMode; }
     public void setDarkMode(boolean isDarkMode) { this.isDarkMode = isDarkMode; }
     public String getCurrentBaseColor() { return currentBaseColor; }
