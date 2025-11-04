@@ -267,26 +267,51 @@ public class ThemeManager {
         toggle.setEffect(toggle.isSelected() ? lightInnerShadow : lightOuterShadow);
     }
     
+    // --- UPDATED METHOD ---
     public <T> void styleComboBox(ComboBox<T> combo) {
-        // This styling is basic, but ensures it doesn't look completely out of place.
         String style = "-fx-background-color: " + currentControlInnerBase + "; " +
                        "-fx-background-radius: 10; " +
-                       "-fx-text-fill: " + currentTextColor + "; " +
+                       "-fx-text-fill: " + currentTextColor + "; " + // Text fill for the button
                        "-fx-border-width: 0;";
         
         combo.setStyle(style);
         combo.setEffect(lightInnerShadow);
         
-        combo.setCellFactory(lv -> new ListCell<T>() { // <-- FIX 1: Use generic type T
+        // --- FIX 1: Style the Button Cell (the selected item) ---
+        // This is what renders the selected item in the box
+        combo.setButtonCell(new ListCell<T>() {
             @Override
-            protected void updateItem(T item, boolean empty) { // <-- FIX 2: Use generic type T
+            protected void updateItem(T item, boolean empty) {
+                super.updateItem(item, empty); 
+                if (empty || item == null) {
+                    setText(null);
+                    // Match the combo box background
+                    setStyle("-fx-background-color: " + currentControlInnerBase + ";");
+                } else { 
+                    setText(item.toString());
+                    // Set the text color and background for the button cell
+                    setStyle("-fx-text-fill: " + currentTextColor + "; -fx-background-color: " + currentControlInnerBase + "; -fx-background-radius: 10;");
+                }
+            }
+        });
+        
+        // --- FIX 2: Style the Dropdown Cells ---
+        // This styles the items in the list when it's opened
+        combo.setCellFactory(lv -> new ListCell<T>() {
+            @Override
+            protected void updateItem(T item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) {
                     setText(null);
-                    setStyle("-fx-background-color: " + currentBaseColor);
+                    setStyle("-fx-background-color: " + currentBaseColor); // Default background
                 } else {
                     setText(item.toString());
+                    // Style for non-selected, non-hovered list items
                     setStyle("-fx-background-color: " + currentBaseColor + "; -fx-text-fill: " + currentTextColor + ";");
+                    
+                    // Add hover effect for clarity
+                    setOnMouseEntered(e -> setStyle("-fx-background-color: " + currentControlInnerBase + "; -fx-text-fill: " + currentTextColor + ";"));
+                    setOnMouseExited(e -> setStyle("-fx-background-color: " + currentBaseColor + "; -fx-text-fill: " + currentTextColor + ";"));
                 }
             }
         });

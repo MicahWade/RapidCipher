@@ -14,14 +14,10 @@ public class Database {
     private static Database instance;
     private Connection connection;
     
-    // ADDED: Load config
-    private static final core.ConfigManager.DbConfig config = ConfigManager.loadConfig();
-
     private static final String SQLITE_DB_PATH = System.getProperty("user.home") + "/Documents/RapidCipher/main.db";
     private static final String SQLITE_DB_URL = "jdbc:sqlite:" + SQLITE_DB_PATH;
 
-
-    private Database() throws SQLException {
+    private Database(ConfigManager.DbConfig config) throws SQLException {
         try {
             String dbUrl;
             
@@ -36,12 +32,30 @@ public class Database {
                     throw new SQLException("MySQL Driver not found", e);
                 }
                 
-                dbUrl = "jdbc:mysql://" + config.host() + ":" + config.port() + "/" + config.dbName() +
+                // --- DECRYPT CREDENTIALS ---
+                String host = "";
+                String port = "";
+                String dbName = "";
+                String user = "";
+                String pass = "";
+                
+                try {
+                    host = Encryption.decryptWithIV(config.host(), MasterPassword.getKey());
+                    port = Encryption.decryptWithIV(config.port(), MasterPassword.getKey());
+                    dbName = Encryption.decryptWithIV(config.dbName(), MasterPassword.getKey());
+                    user = Encryption.decryptWithIV(config.user(), MasterPassword.getKey());
+                    pass = Encryption.decryptWithIV(config.pass(), MasterPassword.getKey());
+                } catch (Exception e) {
+                    System.err.println("Failed to decrypt MySQL credentials: " + e.getMessage());
+                    throw new SQLException("Failed to decrypt credentials. Is config file corrupted or password correct?", e);
+                }
+                
+                dbUrl = "jdbc:mysql://" + host + ":" + port + "/" + dbName +
                         "?useSSL=true&requireSSL=true"; // Force SSL
                 
-                // WARNING: User and Pass are sent. This connection MUST be secure.
-                connection = DriverManager.getConnection(dbUrl, config.user(), config.pass());
-                System.out.println("Connected to MySQL at " + dbUrl);
+                System.out.println("Connecting to MySQL at " + dbUrl);
+                connection = DriverManager.getConnection(dbUrl, user, pass);
+                System.out.println("Connected to MySQL.");
 
             } else {
                 // Default to local SQLite database
@@ -57,21 +71,21 @@ public class Database {
                 System.out.println("Connected to SQLite at " + dbUrl);
             }
 
-            checkAndCreateloginsTable();
+            checkAndCreateloginsTable(config.dbType()); // Pass dbType
         } catch (SQLException e) {
             e.printStackTrace();
             throw e;
         } catch (Exception e) {
-            // Catch IOException or others from Files.createDirectories
+            // Catch IOException or others
             System.err.println("Failed to create directories or connect: " + e.getMessage());
             throw new SQLException(e);
         }
     }
 
-    private void checkAndCreateloginsTable() throws SQLException {
-        // This logic is generic and works for both DBs
+    // --- UPDATED METHOD ---
+    private void checkAndCreateloginsTable(String dbType) throws SQLException {
         if (!doesTableExist("logins") || !isPasswordTableSchemaCorrect()) {
-            createloginsTable();
+            createloginsTable(dbType); // Pass dbType
         }
     }
 
@@ -101,11 +115,12 @@ public class Database {
         }
     }
 
-    private void createloginsTable() throws SQLException {
+    // --- UPDATED METHOD ---
+    private void createloginsTable(String dbType) throws SQLException {
         
         String createTableSQL;
         
-        if (config.dbType().equals("MYSQL")) {
+        if (dbType.equals("MYSQL")) {
              // MySQL specific-syntax (e.g., auto_increment)
              // Using TEXT as blob-like storage for the encrypted base64 strings
             createTableSQL = "CREATE TABLE IF NOT EXISTS logins (" +
@@ -132,9 +147,10 @@ public class Database {
         }
     }
 
-    public static synchronized Database getInstance() throws SQLException {
+    // --- UPDATED METHOD ---
+    public static synchronized Database getInstance(ConfigManager.DbConfig config) throws SQLException {
         if (instance == null) {
-            instance = new Database();
+            instance = new Database(config);
         }
         return instance;
     }

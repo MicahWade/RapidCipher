@@ -32,7 +32,7 @@ import java.sql.SQLException;
 
 public class MainGui extends Application {
     private static MainGui instance;
-    private Database database;
+    private Database database; // Initialized in start()
     private ObservableList<LoginEntry> loginData;
     
     private ThemeManager themeManager;
@@ -63,30 +63,19 @@ public class MainGui extends Application {
     
     private Stage primaryStage; 
     
-    // ADDED field for the config
     private ConfigManager.DbConfig dbConfig;
 
-
+    // --- UPDATED CONSTRUCTOR ---
     public MainGui() {
         instance = this;
         this.themeManager = new ThemeManager(); 
         
-        // ADDED: Load config on startup
+        // Load config on startup
         this.dbConfig = ConfigManager.loadConfig();
         
-        try {
-            database = Database.getInstance();
-            loginData = FXCollections.observableArrayList();
-        } catch (SQLException e) {
-            e.printStackTrace();
-            // ADDED: Show error if DB connection fails
-            Platform.runLater(() -> {
-                themeManager.showErrorAlert("Database Connection Failed",
-                    "Could not connect to the database: " + e.getMessage() + "\n" +
-                    "Please check your settings in config.properties or the Settings menu.");
-                Platform.exit();
-            });
-        }
+        // Database is now initialized in start() after auth
+        // Removed database initialization and try/catch block
+        loginData = FXCollections.observableArrayList();
     }
 
     public static synchronized MainGui getInstance() {
@@ -134,6 +123,7 @@ public class MainGui extends Application {
         loginListView.refresh();
     }
 
+    // --- UPDATED START METHOD ---
     @Override
     public void start(Stage primaryStage) {
         
@@ -141,15 +131,13 @@ public class MainGui extends Application {
         
         themeManager.loadThemePreference();
 
-        
         AuthManager authManager = new AuthManager(themeManager);
         
         boolean proceed = false;
         try {
-            // This will fail if DB connection failed in constructor
-            if (database != null) { 
-                proceed = authManager.showMasterPasswordPrompt();
-            }
+            // Show auth prompt to get the MasterKey
+            proceed = authManager.showMasterPasswordPrompt();
+            
         } catch (Exception e) {
             e.printStackTrace();
             themeManager.showErrorAlert("Fatal Error", "Failed to initialize encryption settings.\n" + e.getMessage());
@@ -160,10 +148,27 @@ public class MainGui extends Application {
             return;
         }
 
+        // --- DATABASE INITIALIZATION MOVED HERE ---
+        // Now that we are authenticated, MasterPassword.getKey() is available
+        // for Database class to use for decryption (if needed).
+        try {
+            database = Database.getInstance(dbConfig); // Pass the loaded config
+        } catch (Exception e) {
+            e.printStackTrace();
+            themeManager.showErrorAlert("Database Connection Failed",
+                "Could not connect to the database: " + e.getMessage() + "\n" +
+                "Please check your settings in config.properties or the Settings menu. " +
+                "If you just changed settings, please restart.");
+            Platform.exit();
+            return;
+        }
+        // --- END OF MOVED BLOCK ---
+
+
         primaryStage.setTitle("Rapid Cipher");
         primaryStage.initStyle(StageStyle.TRANSPARENT);
         
-        loadDataFromDatabase();
+        loadDataFromDatabase(); // Now this can safely run
 
         loginListView = new ListView<>();
         loginListView.setItems(loginData);
@@ -295,7 +300,6 @@ public class MainGui extends Application {
         dbTypeBox.setItems(FXCollections.observableArrayList("SQLITE", "MYSQL"));
         themeManager.styleComboBox(dbTypeBox); // Apply theme
         
-        // --- Remote Fields Pane ---
         GridPane remoteFields = new GridPane();
         remoteFields.setHgap(10);
         remoteFields.setVgap(10);
@@ -317,29 +321,42 @@ public class MainGui extends Application {
         remoteFields.add(new Label("Password:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 4);
         remoteFields.add(passField, 1, 4);
 
-        // --- Set initial values from loaded config ---
-        dbTypeBox.setValue(dbConfig.dbType());
-        hostField.setText(dbConfig.host());
-        portField.setText(dbConfig.port());
-        dbNameField.setText(dbConfig.dbName());
-        userField.setText(dbConfig.user());
-        passField.setText(dbConfig.pass());
+        // --- DECRYPT VALUES BEFORE DISPLAYING ---
+        // Create a temporary config object to hold decrypted values for display
+        ConfigManager.DbConfig displayConfig = dbConfig;
+        if (dbConfig.dbType().equals("MYSQL")) {
+            try {
+                String host = Encryption.decryptWithIV(dbConfig.host(), MasterPassword.getKey());
+                String port = Encryption.decryptWithIV(dbConfig.port(), MasterPassword.getKey());
+                String dbName = Encryption.decryptWithIV(dbConfig.dbName(), MasterPassword.getKey());
+                String user = Encryption.decryptWithIV(dbConfig.user(), MasterPassword.getKey());
+                String pass = Encryption.decryptWithIV(dbConfig.pass(), MasterPassword.getKey());
+                displayConfig = new ConfigManager.DbConfig("MYSQL", host, port, dbName, user, pass);
+            } catch (Exception e) {
+                System.err.println("Could not decrypt config to display in settings: " + e.getMessage());
+                // If decryption fails, show blank fields instead of encrypted garbage
+                displayConfig = new ConfigManager.DbConfig("MYSQL", "", "", "", "", "");
+            }
+        }
 
-        // --- Toggle visibility ---
+        // --- Set initial values from (potentially decrypted) config ---
+        dbTypeBox.setValue(displayConfig.dbType());
+        hostField.setText(displayConfig.host());
+        portField.setText(displayConfig.port());
+        dbNameField.setText(displayConfig.dbName());
+        userField.setText(displayConfig.user());
+        passField.setText(displayConfig.pass());
+
+
         remoteFields.setVisible(dbConfig.dbType().equals("MYSQL"));
         dbTypeBox.valueProperty().addListener((obs, oldVal, newVal) -> {
             remoteFields.setVisible(newVal.equals("MYSQL"));
         });
         
-        // --- Save Button and Warnings ---
         Label restartLabel = new Label("Restart required to apply database changes.");
         restartLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + "; -fx-font-weight: bold;");
         restartLabel.setVisible(false);
-        
-        Label securityWarning = new Label("DANGER: Remote database credentials will be stored in plain text in config.properties. " +
-                                           "Ensure your connection is over SSL/VPN.");
-        securityWarning.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + "; -fx-font-weight: bold;");
-        securityWarning.setWrapText(true);
+       
 
         Button saveButton = themeManager.createStyledButton("Save Database Settings");
         saveButton.setOnAction(e -> {
@@ -351,8 +368,10 @@ public class MainGui extends Application {
                 userField.getText(),
                 passField.getText()
             );
-            ConfigManager.saveConfig(newConfig);
-            this.dbConfig = newConfig; // Update in-memory config
+            ConfigManager.saveConfig(newConfig); 
+            
+            this.dbConfig = ConfigManager.loadConfig(); 
+            
             restartLabel.setVisible(true);
             statusLabel.setText("Settings saved. Please restart.");
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
@@ -507,6 +526,12 @@ public class MainGui extends Application {
     }
     
     private void loadDataFromDatabase() {
+        // This check is important in case startup failed
+        if (database == null) {
+            System.err.println("Database is null, cannot load data.");
+            return;
+        }
+        
         loginData.clear();
         try {
             ResultSet rs = database.searchLogins(); 
@@ -601,8 +626,15 @@ public class MainGui extends Application {
         
         // 2. Hide the main window
         primaryStage.hide();
+        
+        // 3. Clear database instance
+        // This is a bit brute-force, but we need to ensure the next login
+        // re-initializes the database, potentially with new (decrypted) credentials
+        // A cleaner way would be to have a database.close() method.
+        // For now, nulling the instance in MainGui is simplest.
+        database = null; // Force re-initialization on next login
 
-        // 3. Re-show the authentication prompt
+        // 4. Re-show the authentication prompt
         AuthManager authManager = new AuthManager(themeManager);
         boolean proceed = false;
         try {
@@ -612,9 +644,19 @@ public class MainGui extends Application {
             themeManager.showErrorAlert("Fatal Error", "Failed to initialize encryption settings.\n" + e.getMessage());
         }
         
-        // 4. Decide what to do
+        // 5. Decide what to do
         if (proceed) {
-            // Re-load data and show the window
+            // Re-initialize database and re-load data
+            try {
+                this.dbConfig = ConfigManager.loadConfig(); // Re-load config in case it changed
+                database = Database.getInstance(dbConfig);
+            } catch (Exception e) {
+                e.printStackTrace();
+                themeManager.showErrorAlert("Database Connection Failed", "Could not reconnect to database: " + e.getMessage());
+                Platform.exit();
+                return;
+            }
+            
             loadDataFromDatabase();
             primaryStage.show();
         } else {

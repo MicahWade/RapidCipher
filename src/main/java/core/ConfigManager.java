@@ -41,30 +41,65 @@ public class ConfigManager {
                 port = props.getProperty("db.port", "3306");
                 dbName = props.getProperty("db.name", "rapidcipher");
                 user = props.getProperty("db.user", "");
-                pass = props.getProperty("db.pass", ""); // WARNING: Stored in plain text
+                pass = props.getProperty("db.pass", ""); // This value may be encrypted
             } catch (Exception e) {
                 System.err.println("Failed to load config file, using defaults: " + e.getMessage());
             }
         } else {
             // If file doesn't exist, create it with defaults
+            // Note: This initial save will not be encrypted as master key doesn't exist yet
             saveConfig(new DbConfig(dbType, host, port, dbName, user, pass));
         }
 
         return new DbConfig(dbType, host, port, dbName, user, pass);
     }
 
+    // --- UPDATED METHOD ---
     public static void saveConfig(DbConfig config) {
         Properties props = new Properties();
         props.setProperty("db.type", config.dbType());
-        props.setProperty("db.host", config.host());
-        props.setProperty("db.port", config.port());
-        props.setProperty("db.name", config.dbName());
-        props.setProperty("db.user", config.user());
-        props.setProperty("db.pass", config.pass()); // WARNING: Stored in plain text
+
+        String warning = "RapidCipher Database Configuration\n";
+        
+        if (config.dbType().equals("MYSQL")) {
+            // Encrypt MySQL credentials
+            try {
+                props.setProperty("db.host", Encryption.encryptWithIV(config.host(), MasterPassword.getKey()));
+                props.setProperty("db.port", Encryption.encryptWithIV(config.port(), MasterPassword.getKey()));
+                props.setProperty("db.name", Encryption.encryptWithIV(config.dbName(), MasterPassword.getKey()));
+                props.setProperty("db.user", Encryption.encryptWithIV(config.user(), MasterPassword.getKey()));
+                props.setProperty("db.pass", Encryption.encryptWithIV(config.pass(), MasterPassword.getKey()));
+                warning += "MySQL credentials are encrypted.\n";
+
+            } catch (IllegalStateException e) {
+                // This might happen if user saves before logging in (e.g. first run)
+                // But settings pane isn't visible then. This is a safeguard.
+                System.err.println("Cannot save config: Master key is not available. " + e.getMessage());
+                // In this case, we might save plain text, or better, just fail.
+                // For now, we'll just not save the sensitive parts if key is missing
+                props.setProperty("db.host", config.host());
+                props.setProperty("db.port", config.port());
+                props.setProperty("db.name", config.dbName());
+                props.setProperty("db.user", config.user());
+                props.setProperty("db.pass", config.pass());
+                warning += "WARNING: Could not encrypt credentials, Master Key not set. Storing in plain text.\n";
+
+            } catch (Exception e) {
+                System.err.println("Failed to encrypt config: " + e.getMessage());
+                // Don't save partial/bad data
+                return;
+            }
+        } else {
+            // For SQLite, just save plain text (as it's mostly empty anyway)
+            props.setProperty("db.host", config.host());
+            props.setProperty("db.port", config.port());
+            props.setProperty("db.name", config.dbName());
+            props.setProperty("db.user", config.user());
+            props.setProperty("db.pass", config.pass());
+        }
         
         try (OutputStream out = Files.newOutputStream(CONFIG_FILE)) {
-            props.store(out, "RapidCipher Database Configuration\n" +
-                             "WARNING: db.pass is stored in plain text. Secure this file.");
+            props.store(out, warning);
         } catch (Exception e) {
             System.err.println("Failed to save config: " + e.getMessage());
         }
