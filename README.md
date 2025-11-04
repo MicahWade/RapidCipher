@@ -41,7 +41,7 @@ RapidCipher is a secure, flexible password manager built with JavaFX. It provide
 
 2. This creates a RapidCipher-1.x.x.jar file in the target/ directory.  
 3. You can run the application by double-clicking the .jar file or from the command line:  
-   java \-jar target/RapidCipher-1.x.x.jar
+   java -jar target/RapidCipher-1.x.x.jar
 
 ### **Running from Source (For Development)**
 
@@ -62,4 +62,4 @@ By default, the application will create and use a local **SQLite** database file
 
 ## **License**
 
-This project is licensed under the GNU Affero General Public License v3.0 \- see the [LICENSE](https://github.com/MicahWade/RapidCipher/blob/main/LICENSE) file for details.
+This project is licensed under the GNU Affero General Public License v3.0 - see the [LICENSE](https://github.com/MicahWade/RapidCipher/blob/main/LICENSE) file for details.
