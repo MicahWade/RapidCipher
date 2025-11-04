@@ -20,8 +20,6 @@ import javafx.scene.control.TextField;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 
-import bridge.CommandRouter; // ADDED
-import bridge.BridgeHost;   // ADDED
 import core.Database;
 import core.Encryption;
 import core.MasterPassword;
@@ -39,8 +37,6 @@ public class MainGui extends Application {
     private ThemeManager themeManager;
     private GuiBuilder guiBuilder;
     
-    private CommandRouter commandRouter; // ADDED
-
     private ListView<LoginEntry> loginListView;
     private VBox detailsPane;
     private VBox addForm;
@@ -61,10 +57,6 @@ public class MainGui extends Application {
     private Button logoutButton;
     private Button minimizeButton;
     private Button closeButton;
-
-    // Fields to manage the bridge server thread
-    private bridge.BridgeHost bridgeHost;
-    private Thread bridgeThread;
 
     private double xOffset = 0;
     private double yOffset = 0;
@@ -127,7 +119,6 @@ public class MainGui extends Application {
         themeManager.loadThemePreference();
 
         AuthManager authManager = new AuthManager(themeManager);
-        this.commandRouter = new CommandRouter(themeManager); // INITIALIZE CommandRouter
 
         boolean proceed = false;
         try {
@@ -212,7 +203,6 @@ public class MainGui extends Application {
         closeButton = new Button(" X ");
         // --- UPDATED ---
         closeButton.setOnAction(e -> {
-            stopBridge(); // Stop the bridge server thread
             if (database != null) {
                 database.closeConnection();
             }
@@ -260,7 +250,6 @@ public class MainGui extends Application {
         
         // Handle window close request (e.g., Alt+F4)
         primaryStage.setOnCloseRequest(e -> {
-            stopBridge();
             if (database != null) {
                 database.closeConnection();
             }
@@ -272,10 +261,6 @@ public class MainGui extends Application {
 
         primaryStage.show();
         
-        // Start the bridge if it's enabled in settings
-        if (themeManager.isBridgeEnabled()) {
-            startBridge();
-        }
     }
 
     private void showAddForm() {
@@ -460,9 +445,6 @@ public class MainGui extends Application {
         loginListView.refresh();
         showAddForm();
         
-        // Stop the bridge on logout
-        stopBridge();
-
         primaryStage.hide();
 
         if (database != null) {
@@ -471,7 +453,6 @@ public class MainGui extends Application {
         database = null;
 
         AuthManager authManager = new AuthManager(themeManager);
-        this.commandRouter = new CommandRouter(themeManager); // Re-create router
         
         boolean proceed = false;
         try {
@@ -493,79 +474,9 @@ public class MainGui extends Application {
             loadDataFromDatabase();
             primaryStage.show();
             
-            // Restart the bridge if it was enabled
-            if (themeManager.isBridgeEnabled()) {
-                startBridge();
-            }
         } else {
             Platform.exit();
             System.exit(0);
-        }
-    }
-
-    // --- Methods to control the bridge server thread ---
-
-    /**
-     * Toggles the bridge thread on or off based on the setting.
-     * @param enable True to start the bridge, false to stop it.
-     */
-    public void toggleBridge(boolean enable) {
-        if (enable) {
-            startBridge();
-        } else {
-            stopBridge();
-        }
-    }
-
-    /**
-     * Starts the native messaging bridge server on a new daemon thread.
-     */
-    private void startBridge() {
-        if (bridgeThread != null && bridgeThread.isAlive()) {
-            System.out.println("Bridge thread is already running.");
-            return;
-        }
-        
-        // Check if user is logged in
-        try {
-            MasterPassword.getKey(); // This will throw if locked
-        } catch (IllegalStateException e) {
-            statusLabel.setText("Please unlock the vault to enable the bridge.");
-            statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
-            
-            if (settingsPane != null && detailsPane.getChildren().size() > 0 && detailsPane.getChildren().get(0) == settingsPane) {
-                showSettingsPane(); // This will rebuild the pane with the checkbox unchecked
-            }
-            return; 
-        }
-        
-        System.out.println("Starting Native Messaging Bridge server thread...");
-        bridgeHost = new bridge.BridgeHost(this.commandRouter); // Pass the router
-        bridgeThread = new Thread(bridgeHost, "RapidCipher-Bridge-Server-Thread");
-        bridgeThread.setDaemon(true); // Daemon thread will exit when JVM exits
-        bridgeThread.start();
-        statusLabel.setText("Browser bridge enabled.");
-        statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
-    }
-
-    /**
-     * Stops the native messaging bridge server thread.
-     */
-    private void stopBridge() {
-        if (bridgeHost != null) {
-            System.out.println("Stopping Native Messaging Bridge server thread...");
-            bridgeHost.stop(); // This will close the ServerSocket
-            bridgeHost = null;
-        }
-        if (bridgeThread != null) {
-            bridgeThread.interrupt(); // Interrupt the thread
-            bridgeThread = null;
-        }
-        System.out.println("Bridge server thread stopped.");
-        
-        if (statusLabel != null && primaryStage != null && !primaryStage.isIconified()) {
-           statusLabel.setText("Browser bridge disabled.");
-           statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
         }
     }
 
@@ -590,5 +501,3 @@ public class MainGui extends Application {
         return loginListView;
     }
 }
-
-

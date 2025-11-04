@@ -36,7 +36,6 @@ import java.util.concurrent.TimeUnit;
 public class ThemeManager {
 
     private boolean isDarkMode;
-    private boolean isBridgeEnabled = false; // ADDED: New setting
     
     private String currentBaseColor;
     private String currentBaseSemiTransparent;
@@ -159,8 +158,6 @@ public class ThemeManager {
         try (InputStream in = Files.newInputStream(SETTINGS_FILE)) {
             props.load(in);
             this.isDarkMode = Boolean.parseBoolean(props.getProperty("isDarkMode", String.valueOf(this.isDarkMode)));
-            // ADDED: Load the bridge setting
-            this.isBridgeEnabled = Boolean.parseBoolean(props.getProperty("isBridgeEnabled", "false"));
         } catch (Exception e) {
             System.err.println("Failed to load theme preference: " + e.getMessage());
         }
@@ -170,8 +167,6 @@ public class ThemeManager {
     public void saveThemePreference() {
         Properties props = new Properties();
         props.setProperty("isDarkMode", String.valueOf(this.isDarkMode));
-        // ADDED: Save the bridge setting
-        props.setProperty("isBridgeEnabled", String.valueOf(this.isBridgeEnabled));
         
         try (OutputStream out = Files.newOutputStream(SETTINGS_FILE)) {
             props.store(out, "RapidCipher User Preferences");
@@ -598,10 +593,6 @@ public class ThemeManager {
     public boolean isDarkMode() { return isDarkMode; }
     public void setDarkMode(boolean isDarkMode) { this.isDarkMode = isDarkMode; }
     
-    // ADDED: Getter and Setter for the new setting
-    public boolean isBridgeEnabled() { return isBridgeEnabled; }
-    public void setBridgeEnabled(boolean isEnabled) { this.isBridgeEnabled = isEnabled; }
-    
     public String getCurrentBaseColor() { return currentBaseColor; }
     public String getCurrentBaseSemiTransparent() { return currentBaseSemiTransparent; }
     public String getCurrentTextColor() { return currentTextColor; }
@@ -611,4 +602,3 @@ public class ThemeManager {
     public DropShadow getLightOuterShadow() { return lightOuterShadow; }
     public InnerShadow getLightInnerShadow() { return lightInnerShadow; }
 }
-

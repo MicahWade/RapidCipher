@@ -179,32 +179,6 @@ public class GuiBuilder {
             mainGui.saveDbSettings(newConfig, migrateDataCheck.isSelected(), restartLabel);
         });
         
-        // --- ADDED: Browser Integration Section ---
-        
-        Separator separator = new Separator();
-        separator.setPadding(new Insets(10, 0, 0, 0));
-
-        Label browserTitle = new Label("Browser Integration (Native Messaging)");
-        browserTitle.setFont(Font.font("System", FontWeight.BOLD, 16));
-        browserTitle.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
-
-        CheckBox bridgeCheck = themeManager.createStyledCheckBox("Enable Browser Bridge");
-        bridgeCheck.setSelected(themeManager.isBridgeEnabled());
-        
-        Label bridgeInfo = new Label("Allows the browser extension to connect to this application");
-        bridgeInfo.setWrapText(true);
-        bridgeInfo.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
-
-        // Add listener to toggle the bridge and save the setting
-        bridgeCheck.setOnAction(e -> {
-            boolean isEnabled = bridgeCheck.isSelected();
-            themeManager.setBridgeEnabled(isEnabled);
-            themeManager.saveThemePreference(); // Save the setting to settings.properties
-            mainGui.toggleBridge(isEnabled); // Tell the main GUI to start/stop the thread
-        });
-        
-        // --- End of new section ---
-
         pane.getChildren().addAll(
                 title,
                 dbTitle,
@@ -212,11 +186,7 @@ public class GuiBuilder {
                 remoteFields,
                 migrateDataCheck, 
                 saveButton,
-                restartLabel,
-                separator,      // ADDED
-                browserTitle,   // ADDED
-                bridgeCheck,    // ADDED
-                bridgeInfo      // ADDED
+                restartLabel
         );
 
         hostField.setMaxWidth(Double.MAX_VALUE);
@@ -606,4 +576,3 @@ public class GuiBuilder {
         }
     }
 }
-
