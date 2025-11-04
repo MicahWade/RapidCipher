@@ -21,14 +21,14 @@ function connect() {
 
         hostState.isHostConnected = true;
         hostState.hostError = null;
-        console.log("Connected.");
+        console.log("Connected to NativeRelay.");
 
         // Check status on connect
         sendMessageToHost({ command: "getStatus" });
     } catch (e) {
         console.error("Failed to connect:", e.message);
         hostState.isHostConnected = false;
-        hostState.hostError = "Failed to connect. Is RapidCipher installed and the host installer script run?";
+        hostState.hostError = "Failed to start native host. Is RapidCipher installed and the native host manifest configured correctly?";
     }
 }
 
@@ -39,8 +39,13 @@ function onDisconnected() {
         isHostConnected: false,
         isUnlocked: false,
         logins: [],
-        hostError: "Connection lost. Is RapidCipher running?"
+        // Updated error message to be more specific
+        hostError: "Connection failed. Is RapidCipher running and the Browser Bridge enabled in Settings?"
     };
+
+    // Clear popup state
+    chrome.runtime.sendMessage({ type: "nativeResponse", data: { status: "error", message: hostState.hostError }});
+
     // Attempt to reconnect after a delay
     setTimeout(connect, 5000);
 }
@@ -85,7 +90,9 @@ function sendMessageToHost(msg) {
     } else {
         console.error("Cannot send message, port is not connected.");
         // Try to connect again
-        connect();
+        if (!hostState.isHostConnected) {
+            connect();
+        }
         // Send an error to the popup
         chrome.runtime.sendMessage({
             type: "nativeResponse",
@@ -111,6 +118,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // If we're not connected, try to connect now
         if (!hostState.isHostConnected) {
             connect();
+        } else {
+            // If we are connected, refresh the status just in case
+            // This catches cases where the app was locked *after* connection
+            sendMessageToHost({ command: "getStatus" });
         }
     }
     else if (type === "nativeRequest") {
@@ -134,3 +145,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // --- Initial Connection ---
 connect();
+

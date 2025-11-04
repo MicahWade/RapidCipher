@@ -57,6 +57,11 @@ function handleNativeResponse(response) {
 
     if (response.status === "error") {
         showStatus(response.message, 'error');
+        // If we get an error, and we aren't in the settings menu,
+        // force the view to 'locked' as we are no longer authenticated
+        if (settingsView.style.display !== 'flex') {
+            showView('locked');
+        }
         return;
     }
 
@@ -196,7 +201,7 @@ searchBar.addEventListener('input', (e) => {
     const filteredLogins = allLogins.filter(login =>
     login.name.toLowerCase().includes(query) ||
     login.username.toLowerCase().includes(query) ||
-    login.url.toLowerCase().includes(query)
+    (login.url && login.url.toLowerCase().includes(query))
     );
     renderLogins(filteredLogins);
 });
@@ -256,9 +261,19 @@ async function initializePopup() {
     }
 
     if (state.isUnlocked) {
-        allLogins = state.logins;
-        renderLogins(allLogins);
+        // We are unlocked, but the background script might not have the logins yet.
+        // Let's request them.
+        sendMessageToBackground({
+            type: "nativeRequest",
+            payload: { command: "getLogins" }
+        });
+        // We can't 'await' this, because the response comes via
+        // the chrome.runtime.onMessage.addListener
+        // The handleNativeResponse function will receive the logins
+        // and update the view.
+        // We can show a temporary loading state.
         showView('unlocked');
+        loginsList.innerHTML = "<p>Loading logins...</p>";
     } else {
         showView('locked');
     }
@@ -272,3 +287,4 @@ const ICONS = {
 
 // Run initialization
 initializePopup();
+

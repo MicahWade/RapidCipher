@@ -20,6 +20,8 @@ import javafx.scene.control.TextField;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 
+import bridge.CommandRouter; // ADDED
+import bridge.BridgeHost;   // ADDED
 import core.Database;
 import core.Encryption;
 import core.MasterPassword;
@@ -36,6 +38,8 @@ public class MainGui extends Application {
 
     private ThemeManager themeManager;
     private GuiBuilder guiBuilder;
+    
+    private CommandRouter commandRouter; // ADDED
 
     private ListView<LoginEntry> loginListView;
     private VBox detailsPane;
@@ -58,7 +62,7 @@ public class MainGui extends Application {
     private Button minimizeButton;
     private Button closeButton;
 
-    // ADDED: Fields to manage the bridge thread
+    // Fields to manage the bridge server thread
     private bridge.BridgeHost bridgeHost;
     private Thread bridgeThread;
 
@@ -123,6 +127,8 @@ public class MainGui extends Application {
         themeManager.loadThemePreference();
 
         AuthManager authManager = new AuthManager(themeManager);
+        this.commandRouter = new CommandRouter(themeManager); // INITIALIZE CommandRouter
+
         boolean proceed = false;
         try {
             proceed = authManager.showMasterPasswordPrompt();
@@ -145,8 +151,6 @@ public class MainGui extends Application {
                             "Please check your settings in config.properties or the Settings menu. " +
                             "If you just changed settings, please restart.");
             // Don't exit, allow user to access settings
-            // Platform.exit();
-            // return;
         }
 
         primaryStage.setTitle("Rapid Cipher");
@@ -208,12 +212,13 @@ public class MainGui extends Application {
         closeButton = new Button(" X ");
         // --- UPDATED ---
         closeButton.setOnAction(e -> {
-            stopBridge(); // ADDED: Stop the bridge thread
+            stopBridge(); // Stop the bridge server thread
             if (database != null) {
                 database.closeConnection();
             }
             primaryStage.close();
             Platform.exit(); // Ensure application exits
+            System.exit(0); // Force exit just in case
         });
 
         Region spacer = new Region();
@@ -252,12 +257,22 @@ public class MainGui extends Application {
         primaryStage.setScene(scene);
         primaryStage.setMinWidth(800);
         primaryStage.setMinHeight(600);
+        
+        // Handle window close request (e.g., Alt+F4)
+        primaryStage.setOnCloseRequest(e -> {
+            stopBridge();
+            if (database != null) {
+                database.closeConnection();
+            }
+            Platform.exit();
+            System.exit(0);
+        });
 
         updateAllStyles();
 
         primaryStage.show();
         
-        // ADDED: Start the bridge if it's enabled in settings
+        // Start the bridge if it's enabled in settings
         if (themeManager.isBridgeEnabled()) {
             startBridge();
         }
@@ -282,7 +297,9 @@ public class MainGui extends Application {
         }
 
         loginData.clear();
-        try (ResultSet rs = database.searchLogins()) {
+        ResultSet rs = null;
+        try {
+            rs = database.searchLogins();
             while (rs != null && rs.next()) {
 
                 long id = rs.getLong("id");
@@ -314,6 +331,10 @@ public class MainGui extends Application {
         } catch (SQLException e) {
             e.printStackTrace();
             themeManager.showErrorAlert("Database Load Failed", "Could not load data from database: " + e.getMessage());
+        } finally {
+            if (rs != null) {
+                try { rs.getStatement().close(); rs.close(); } catch (SQLException e) { /* ignore */ }
+            }
         }
     }
 
@@ -439,7 +460,7 @@ public class MainGui extends Application {
         loginListView.refresh();
         showAddForm();
         
-        // ADDED: Stop the bridge on logout
+        // Stop the bridge on logout
         stopBridge();
 
         primaryStage.hide();
@@ -450,6 +471,8 @@ public class MainGui extends Application {
         database = null;
 
         AuthManager authManager = new AuthManager(themeManager);
+        this.commandRouter = new CommandRouter(themeManager); // Re-create router
+        
         boolean proceed = false;
         try {
             proceed = authManager.showMasterPasswordPrompt();
@@ -465,22 +488,22 @@ public class MainGui extends Application {
             } catch (Exception e) {
                 e.printStackTrace();
                 themeManager.showErrorAlert("Database Connection Failed", "Could not reconnect to database: " + e.getMessage());
-                // Don't exit, allow user to access settings
             }
 
             loadDataFromDatabase();
             primaryStage.show();
             
-            // ADDED: Restart the bridge if it was enabled
+            // Restart the bridge if it was enabled
             if (themeManager.isBridgeEnabled()) {
                 startBridge();
             }
         } else {
             Platform.exit();
+            System.exit(0);
         }
     }
 
-    // --- ADDED: Methods to control the bridge thread ---
+    // --- Methods to control the bridge server thread ---
 
     /**
      * Toggles the bridge thread on or off based on the setting.
@@ -495,7 +518,7 @@ public class MainGui extends Application {
     }
 
     /**
-     * Starts the native messaging bridge on a new daemon thread.
+     * Starts the native messaging bridge server on a new daemon thread.
      */
     private void startBridge() {
         if (bridgeThread != null && bridgeThread.isAlive()) {
@@ -509,16 +532,16 @@ public class MainGui extends Application {
         } catch (IllegalStateException e) {
             statusLabel.setText("Please unlock the vault to enable the bridge.");
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
-            // We should also update the checkbox in settings
+            
             if (settingsPane != null && detailsPane.getChildren().size() > 0 && detailsPane.getChildren().get(0) == settingsPane) {
                 showSettingsPane(); // This will rebuild the pane with the checkbox unchecked
             }
             return; 
         }
         
-        System.out.println("Starting Native Messaging Bridge thread...");
-        bridgeHost = new bridge.BridgeHost(themeManager);
-        bridgeThread = new Thread(bridgeHost, "RapidCipher-Bridge-Thread");
+        System.out.println("Starting Native Messaging Bridge server thread...");
+        bridgeHost = new bridge.BridgeHost(this.commandRouter); // Pass the router
+        bridgeThread = new Thread(bridgeHost, "RapidCipher-Bridge-Server-Thread");
         bridgeThread.setDaemon(true); // Daemon thread will exit when JVM exits
         bridgeThread.start();
         statusLabel.setText("Browser bridge enabled.");
@@ -526,29 +549,27 @@ public class MainGui extends Application {
     }
 
     /**
-     * Stops the native messaging bridge thread.
+     * Stops the native messaging bridge server thread.
      */
     private void stopBridge() {
         if (bridgeHost != null) {
-            System.out.println("Stopping Native Messaging Bridge thread...");
-            bridgeHost.stop(); // This will close System.in and set isRunning=false
+            System.out.println("Stopping Native Messaging Bridge server thread...");
+            bridgeHost.stop(); // This will close the ServerSocket
             bridgeHost = null;
         }
         if (bridgeThread != null) {
-            bridgeThread.interrupt(); // Interrupt the thread in case it's waiting
+            bridgeThread.interrupt(); // Interrupt the thread
             bridgeThread = null;
         }
-        System.out.println("Bridge thread stopped.");
+        System.out.println("Bridge server thread stopped.");
         
-        // Check if GUI is closing (statusLabel might be null)
         if (statusLabel != null && primaryStage != null && !primaryStage.isIconified()) {
            statusLabel.setText("Browser bridge disabled.");
            statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
         }
     }
-    // --- End of new methods ---
 
-    // --- ADDED: Getters for GuiBuilder ---
+    // --- Getters for GuiBuilder ---
     public Label getStatusLabel() {
         return statusLabel;
     }
@@ -569,4 +590,5 @@ public class MainGui extends Application {
         return loginListView;
     }
 }
+
 

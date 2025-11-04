@@ -1,7 +1,6 @@
 {
   "name": "com.rapidcipher.bridge",
   "description": "RapidCipher Native Messaging Bridge",
-  "path": "PLEASE_EDIT_THIS_TO_ABSOLUTE_PATH_TO_run_host.bat_OR_run_host.sh",
   "type": "stdio",
   "allowed_extensions": [
     "rapidcipher@canberracollage.com"
