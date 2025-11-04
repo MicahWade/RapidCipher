@@ -191,9 +191,7 @@ public class GuiBuilder {
         CheckBox bridgeCheck = themeManager.createStyledCheckBox("Enable Browser Bridge");
         bridgeCheck.setSelected(themeManager.isBridgeEnabled());
         
-        Label bridgeInfo = new Label("Allows the browser extension to connect to this application.\n" + 
-                                     "You must still run the one-time `install_host` script.\n" + 
-                                     "Your browser may need to be restarted to detect changes.");
+        Label bridgeInfo = new Label("Allows the browser extension to connect to this application");
         bridgeInfo.setWrapText(true);
         bridgeInfo.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
 
