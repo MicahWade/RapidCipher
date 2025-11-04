@@ -3,9 +3,8 @@ package gui;
 import core.ConfigManager;
 import core.Encryption;
 import core.MasterPassword;
-import core.PasswordGenerator; // Added
-import javafx.application.Platform; // Added
-import javafx.beans.binding.Bindings; // Added
+import core.PasswordGenerator;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -17,12 +16,13 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color; // Added
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import javafx.stage.StageStyle; // Added
+import javafx.stage.StageStyle;
 
-import java.util.Optional; // Added
+import java.util.Optional;
+import java.util.function.UnaryOperator; // Added for TextFormatter
 
 public class GuiBuilder {
 
@@ -194,13 +194,11 @@ public class GuiBuilder {
             passwordField.setVisible(!newVal);
         });
         
-        // --- NEW ---
         Button generateButton = themeManager.createGeneratorButton();
         generateButton.setOnAction(e -> showGeneratorDialog(passwordField));
 
-        HBox passBox = new HBox(10, passStack, showHidePassButton, generateButton); // Added generateButton
+        HBox passBox = new HBox(10, passStack, showHidePassButton, generateButton);
         HBox.setHgrow(passStack, Priority.ALWAYS);
-        // --- END NEW ---
 
         TextField urlField = themeManager.createStyledTextField("URL");
         TextField notesField = themeManager.createStyledTextField("Notes");
@@ -214,7 +212,7 @@ public class GuiBuilder {
         return form;
     }
     
-    // --- NEW METHOD ---
+    // --- UPDATED METHOD ---
     private void showGeneratorDialog(PasswordField targetPasswordField) {
         Dialog<String> dialog = new Dialog<>();
         dialog.initStyle(StageStyle.TRANSPARENT);
@@ -238,19 +236,29 @@ public class GuiBuilder {
         HBox resultBox = new HBox(10, resultField, copyButton);
         HBox.setHgrow(resultField, Priority.ALWAYS);
         
+        // --- Filter for numeric input ---
+        UnaryOperator<TextFormatter.Change> integerFilter = change -> {
+            String newText = change.getControlNewText();
+            if (newText.matches("\\d*")) { // Allow empty or all digits
+                return change;
+            }
+            return null; // Reject the change
+        };
+
         // --- Password Tab ---
         VBox passwordTabContent = new VBox(15);
         passwordTabContent.setPadding(new Insets(10));
         
-        Label lengthLabel = new Label("Length: 16");
+        Label lengthLabel = new Label("Length:");
         lengthLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
-        Slider lengthSlider = new Slider(8, 64, 16);
-        lengthSlider.setBlockIncrement(1);
-        lengthSlider.setMajorTickUnit(8);
-        lengthSlider.setMinorTickCount(7);
-        lengthSlider.setShowTickMarks(true);
-        lengthLabel.textProperty().bind(Bindings.format("Length: %.0f", lengthSlider.valueProperty()));
-        themeManager.styleSlider(lengthSlider);
+        
+        TextField lengthField = themeManager.createStyledTextField("16");
+        lengthField.setText("16"); // Default value
+        lengthField.setPrefWidth(70);
+        lengthField.setTextFormatter(new TextFormatter<>(integerFilter));
+
+        HBox lengthBox = new HBox(10, lengthLabel, lengthField);
+        lengthBox.setAlignment(Pos.CENTER_LEFT);
         
         CheckBox upperCheck = themeManager.createStyledCheckBox("Uppercase (A-Z)");
         upperCheck.setSelected(true);
@@ -259,19 +267,55 @@ public class GuiBuilder {
         CheckBox symbolsCheck = themeManager.createStyledCheckBox("Symbols (!@#...)");
         symbolsCheck.setSelected(true);
         
+        Label minDigitsLabel = new Label("Min Digits:");
+        minDigitsLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+        Spinner<Integer> minDigitsSpinner = new Spinner<>(0, 10, 1);
+        minDigitsSpinner.setPrefWidth(70);
+        minDigitsSpinner.disableProperty().bind(digitsCheck.selectedProperty().not());
+        
+        Label minSymbolsLabel = new Label("Min Symbols:");
+        minSymbolsLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+        Spinner<Integer> minSymbolsSpinner = new Spinner<>(0, 10, 1);
+        minSymbolsSpinner.setPrefWidth(70);
+        minSymbolsSpinner.disableProperty().bind(symbolsCheck.selectedProperty().not());
+        
+        HBox minBox = new HBox(10, minDigitsLabel, minDigitsSpinner, minSymbolsLabel, minSymbolsSpinner);
+        minBox.setAlignment(Pos.CENTER_LEFT);
+        
         Button generatePasswordButton = themeManager.createStyledButton("Generate Password");
         generatePasswordButton.setOnAction(e -> {
+            int minLower = 1;
+            int minUpper = upperCheck.isSelected() ? 1 : 0;
+            int minDigits = digitsCheck.isSelected() ? minDigitsSpinner.getValue() : 0;
+            int minSymbols = symbolsCheck.isSelected() ? minSymbolsSpinner.getValue() : 0;
+            int totalMin = minLower + minUpper + minDigits + minSymbols;
+
+            int length = 16; // Default
+            try {
+                length = Integer.parseInt(lengthField.getText());
+            } catch (NumberFormatException ex) {
+                // Keep default
+            }
+
+            if (length < Math.max(8, totalMin)) {
+                length = Math.max(8, totalMin);
+                lengthField.setText(String.valueOf(length)); // Update field
+            }
+            
             resultField.setText(PasswordGenerator.generatePassword(
-                (int) lengthSlider.getValue(),
+                length,
                 upperCheck.isSelected(),
                 digitsCheck.isSelected(),
-                symbolsCheck.isSelected()
+                symbolsCheck.isSelected(),
+                minDigitsSpinner.getValue(),
+                minSymbolsSpinner.getValue()
             ));
         });
         
         passwordTabContent.getChildren().addAll(
-            new VBox(5, lengthLabel, lengthSlider),
+            lengthBox,
             upperCheck, digitsCheck, symbolsCheck,
+            minBox,
             generatePasswordButton
         );
         passwordTabContent.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
@@ -280,14 +324,16 @@ public class GuiBuilder {
         VBox passphraseTabContent = new VBox(15);
         passphraseTabContent.setPadding(new Insets(10));
         
-        Label wordsLabel = new Label("Words: 4");
+        Label wordsLabel = new Label("Words:");
         wordsLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
-        Slider wordsSlider = new Slider(3, 10, 4);
-        wordsSlider.setBlockIncrement(1);
-        wordsSlider.setMajorTickUnit(1);
-        wordsSlider.setSnapToTicks(true);
-        wordsLabel.textProperty().bind(Bindings.format("Words: %.0f", wordsSlider.valueProperty()));
-        themeManager.styleSlider(wordsSlider);
+        
+        TextField wordsField = themeManager.createStyledTextField("4");
+        wordsField.setText("4"); // Default value
+        wordsField.setPrefWidth(70);
+        wordsField.setTextFormatter(new TextFormatter<>(integerFilter));
+
+        HBox wordsBox = new HBox(10, wordsLabel, wordsField);
+        wordsBox.setAlignment(Pos.CENTER_LEFT);
 
         Label separatorLabel = new Label("Separator:");
         separatorLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
@@ -298,14 +344,26 @@ public class GuiBuilder {
         
         Button generatePassphraseButton = themeManager.createStyledButton("Generate Passphrase");
         generatePassphraseButton.setOnAction(e -> {
+            int numWords = 4; // Default
+            try {
+                numWords = Integer.parseInt(wordsField.getText());
+            } catch (NumberFormatException ex) {
+                // Keep default
+            }
+            
+            if (numWords < 3) {
+                numWords = 3;
+                wordsField.setText("3"); // Update field
+            }
+            
             resultField.setText(PasswordGenerator.generatePassphrase(
-                (int) wordsSlider.getValue(),
+                numWords,
                 separatorField.getText()
             ));
         });
         
         passphraseTabContent.getChildren().addAll(
-            new VBox(5, wordsLabel, wordsSlider),
+            wordsBox,
             separatorBox,
             generatePassphraseButton
         );
@@ -344,7 +402,7 @@ public class GuiBuilder {
         // Generate a password on open
         Platform.runLater(() -> {
             generatePasswordButton.fire();
-            lengthSlider.requestFocus();
+            lengthField.requestFocus();
         });
 
         Optional<String> result = dialog.showAndWait();

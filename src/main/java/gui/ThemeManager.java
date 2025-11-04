@@ -1,5 +1,6 @@
 package gui;
 
+import javafx.application.Platform; // Added
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox; // Added
 import javafx.scene.control.ComboBox;
@@ -13,6 +14,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Label; // Added for tab label styling
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.InnerShadow;
 import javafx.scene.layout.Region; // Added
@@ -295,29 +297,81 @@ public class ThemeManager {
         }
     }
 
-    // --- NEW METHOD for TabPane ---
+    // --- UPDATED METHOD for TabPane ---
     public void styleTabPane(TabPane tabPane) {
+        // This styles the entire TabPane container, including the content area background
         tabPane.setStyle("-fx-background-color: " + currentBaseColor + ";");
-        
-        // This is tricky without CSS, but we can try to style the header area
-        Region headerArea = (Region) tabPane.lookup(".tab-header-area");
-        if (headerArea != null) {
-            headerArea.setStyle("-fx-background-color: " + currentBaseColor + "; -fx-padding: 5 0 0 0;");
-        }
 
-        tabPane.getTabs().forEach(this::styleTab);
+        // We must wait for the scene graph to be built to find the nodes
+        Platform.runLater(() -> {
+            // Style the bar that contains the tab buttons
+            Region headerArea = (Region) tabPane.lookup(".tab-header-area");
+            if (headerArea != null) {
+                headerArea.setStyle(
+                    "-fx-background-color: " + currentBaseColor + "; " + // Background of the whole tab bar
+                    "-fx-padding: 3 0 0 5;" // Padding for the bar
+                );
+            }
+            
+            // Style the background of the header bar itself
+            Region headerBg = (Region) tabPane.lookup(".tab-header-background");
+            if (headerBg != null) {
+                 headerBg.setStyle("-fx-background-color: " + currentBaseColor + ";");
+            }
+            
+            // Function to set tab styles
+            Runnable updateTabs = () -> {
+                tabPane.lookupAll(".tab").forEach(node -> {
+                    // Style for unselected tabs
+                    node.setStyle(
+                        "-fx-background-color: " + currentControlInnerBase + "; " +
+                        "-fx-background-radius: 5 5 0 0; " +
+                        "-fx-background-insets: 0 1 0 0; " + // Small gap between tabs
+                        "-fx-padding: 8 15 8 15;"
+                    );
+                    node.setEffect(lightInnerShadow);
+                    
+                    // Try to set text color
+                    Label tabLabel = (Label) node.lookup(".tab-label");
+                    if (tabLabel != null) {
+                        tabLabel.setStyle("-fx-text-fill: " + currentMutedTextColor + ";");
+                    }
+                });
+
+                // Style the *selected* tab button
+                Tab selectedTab = tabPane.getSelectionModel().getSelectedItem();
+                if (selectedTab != null && selectedTab.getStyleableNode() != null) {
+                     selectedTab.getStyleableNode().setStyle(
+                        "-fx-background-color: " + currentBaseColor + "; " + // Match the content pane
+                        "-fx-background-radius: 5 5 0 0; " +
+                        "-fx-padding: 8 15 8 15;"
+                    );
+                    selectedTab.getStyleableNode().setEffect(lightOuterShadow);
+                    
+                    Label tabLabel = (Label) selectedTab.getStyleableNode().lookup(".tab-label");
+                    if (tabLabel != null) {
+                        tabLabel.setStyle("-fx-text-fill: " + currentTextColor + ";");
+                    }
+                }
+            };
+
+            // Initial style update
+            updateTabs.run();
+
+            // Add a listener to re-style on selection change
+            tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> updateTabs.run());
+        });
+
+        // Style the content area of each tab
+        tabPane.getTabs().forEach(this::styleTabContent);
     }
     
-    // --- NEW METHOD for Tab ---
-    private void styleTab(Tab tab) {
-        // This is very difficult without CSS.
+    // --- RENAMED/UPDATED METHOD for Tab Content ---
+    private void styleTabContent(Tab tab) {
         // We'll just style the content area.
         if (tab.getContent() != null) {
             tab.getContent().setStyle("-fx-background-color: " + currentBaseColor + "; -fx-padding: 10;");
         }
-        
-        // We can't easily style the tab button itself without a complex lookup or CSS.
-        // We will rely on the content styling.
     }
 
 

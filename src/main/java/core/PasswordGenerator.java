@@ -17,17 +17,11 @@ public class PasswordGenerator {
     private static final String DIGITS = "0123456789";
     private static final String SYMBOLS = "!@#$%^&*()_+-=[]{}|;:,.<>?";
 
-    // This will be populated from the resource file
     private static List<String> WORD_LIST;
 
     private static final SecureRandom random = new SecureRandom();
 
-    /**
-     * Static initializer block to load the wordlist from resources.
-     * This code runs once when the class is first loaded.
-     */
     static {
-        // The path must start with '/' to search from the root of the classpath
         String resourcePath = "/top_english_adjs_lower_10000.txt";
         
         try (InputStream is = PasswordGenerator.class.getResourceAsStream(resourcePath)) {
@@ -71,35 +65,51 @@ public class PasswordGenerator {
         }
     }
 
-    public static String generatePassword(int length, boolean useUpper, boolean useDigits, boolean useSymbols) {
-        if (length < 4) {
-            length = 4;
-        }
-
-        List<Character> charCategories = new ArrayList<>();
-        charCategories.add(LOWER.charAt(random.nextInt(LOWER.length())));
+    public static String generatePassword(int length, boolean useUpper, boolean useDigits, boolean useSymbols, int minDigits, int minSymbols) {
         
+        int minLower = 1;
+        int minUpper = useUpper ? 1 : 0;
+        
+        int reqDigits = useDigits ? minDigits : 0;
+        int reqSymbols = useSymbols ? minSymbols : 0;
+        
+        int totalMin = minLower + minUpper + reqDigits + reqSymbols;
+        
+        if(length < totalMin) {
+            length = totalMin;
+        }
+
+        List<Character> passChars = new ArrayList<>();
         String allChars = LOWER;
-
+        
+        for(int i = 0; i < minLower; i++) passChars.add(LOWER.charAt(random.nextInt(LOWER.length())));
+        
         if (useUpper) {
-            charCategories.add(UPPER.charAt(random.nextInt(UPPER.length())));
             allChars += UPPER;
+            for(int i = 0; i < minUpper; i++) passChars.add(UPPER.charAt(random.nextInt(UPPER.length())));
         }
+        
+        // Add required digits
         if (useDigits) {
-            charCategories.add(DIGITS.charAt(random.nextInt(DIGITS.length())));
             allChars += DIGITS;
+            for (int i = 0; i < reqDigits; i++) {
+                passChars.add(DIGITS.charAt(random.nextInt(DIGITS.length())));
+            }
         }
+        
         if (useSymbols) {
-            charCategories.add(SYMBOLS.charAt(random.nextInt(SYMBOLS.length())));
             allChars += SYMBOLS;
+            for (int i = 0; i < reqSymbols; i++) {
+                passChars.add(SYMBOLS.charAt(random.nextInt(SYMBOLS.length())));
+            }
         }
 
-        for (int i = charCategories.size(); i < length; i++) {
-            charCategories.add(allChars.charAt(random.nextInt(allChars.length())));
+        for (int i = passChars.size(); i < length; i++) {
+            passChars.add(allChars.charAt(random.nextInt(allChars.length())));
         }
 
-        Collections.shuffle(charCategories, random);
-        return charCategories.stream()
+        Collections.shuffle(passChars, random);
+        return passChars.stream()
                 .map(String::valueOf)
                 .collect(Collectors.joining());
     }
