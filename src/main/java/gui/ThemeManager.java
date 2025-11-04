@@ -60,27 +60,39 @@ public class ThemeManager {
         try {
             if (os.contains("win")) {
                 command = "reg query \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize\" /v AppsUseLightTheme";
-                Process process = Runtime.getRuntime().exec(command);
-                String result = new BufferedReader(new InputStreamReader(process.getInputStream()))
-                        .lines().filter(line -> line.contains("AppsUseLightTheme")).findFirst().orElse("");
+                Process process = Runtime.getRuntime().exec(new String[] {command});
+                InputStreamReader iSReader = new InputStreamReader(process.getInputStream());
+                BufferedReader buffReader = new BufferedReader(iSReader);
+                String result = buffReader.lines().filter(line -> line.contains("AppsUseLightTheme")).findFirst().orElse("");
+                
+                iSReader.close();
+                buffReader.close();
                 
                 process.waitFor(1, TimeUnit.SECONDS);
                 if (result.contains("0x0")) isDark = true;
 
             } else if (os.contains("mac")) {
                 command = "defaults read -g AppleInterfaceStyle";
-                Process process = Runtime.getRuntime().exec(command);
-                String result = new BufferedReader(new InputStreamReader(process.getInputStream()))
-                        .lines().findFirst().orElse("");
+                Process process = Runtime.getRuntime().exec(new String[] {command});
+                InputStreamReader iSReader = new InputStreamReader(process.getInputStream());
+                BufferedReader buffReader = new BufferedReader(iSReader);
+                String result = buffReader.lines().findFirst().orElse("");
+                
+                iSReader.close();
+                buffReader.close();
                 
                 process.waitFor(1, TimeUnit.SECONDS);
                 if (result.trim().equals("Dark")) isDark = true;
 
             } else if (os.contains("nix") || os.contains("nux")) {
                 command = "gsettings get org.gnome.desktop.interface color-scheme";
-                Process process = Runtime.getRuntime().exec(command);
-                String result = new BufferedReader(new InputStreamReader(process.getInputStream()))
-                        .lines().findFirst().orElse("");
+                Process process = Runtime.getRuntime().exec(new String[] {command});
+                InputStreamReader iSReader = new InputStreamReader(process.getInputStream());
+                BufferedReader buffReader = new BufferedReader(iSReader);
+                String result = buffReader.lines().findFirst().orElse("");
+                
+                iSReader.close();
+                buffReader.close();
                 
                 process.waitFor(1, TimeUnit.SECONDS);
                 if (result.contains("prefer-dark")) isDark = true;
