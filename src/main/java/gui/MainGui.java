@@ -382,7 +382,6 @@ public class MainGui extends Application {
             dbTitle, 
             new HBox(10, dbTypeLabel, dbTypeBox),
             remoteFields,
-            securityWarning,
             saveButton,
             restartLabel
         ); 
