@@ -3,6 +3,9 @@ package gui;
 import core.ConfigManager;
 import core.Encryption;
 import core.MasterPassword;
+import core.PasswordGenerator; // Added
+import javafx.application.Platform; // Added
+import javafx.beans.binding.Bindings; // Added
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -14,8 +17,12 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color; // Added
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.StageStyle; // Added
+
+import java.util.Optional; // Added
 
 public class GuiBuilder {
 
@@ -28,6 +35,7 @@ public class GuiBuilder {
     }
 
     public VBox buildSettingsPane() {
+        // ... (existing code)
         VBox pane = new VBox(15);
         pane.setPadding(new Insets(10));
 
@@ -111,15 +119,12 @@ public class GuiBuilder {
 
         remoteFields.setVisible(currentDbConfig.dbType().equals("MYSQL"));
         
-        // --- NEW CHECKBOX FOR MIGRATION ---
         CheckBox migrateDataCheck = new CheckBox("Copy data from current DB to new DB");
         migrateDataCheck.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
-        // Hide by default. Only show if the DB type is changed.
         migrateDataCheck.setVisible(false); 
 
         dbTypeBox.valueProperty().addListener((obs, oldVal, newVal) -> {
             remoteFields.setVisible(newVal.equals("MYSQL"));
-            // Show the migrate checkbox ONLY if the new value is different from the original config's value
             migrateDataCheck.setVisible(!newVal.equals(currentDbConfig.dbType()));
         });
 
@@ -137,8 +142,6 @@ public class GuiBuilder {
                     userField.getText(),
                     passField.getText());
             
-            // --- UPDATED METHOD CALL ---
-            // Pass the state of the new checkbox to the save method
             mainGui.saveDbSettings(newConfig, migrateDataCheck.isSelected(), restartLabel);
         });
 
@@ -147,7 +150,7 @@ public class GuiBuilder {
                 dbTitle,
                 new HBox(10, dbTypeLabel, dbTypeBox),
                 remoteFields,
-                migrateDataCheck, // <-- ADDED CHECKBOX
+                migrateDataCheck, 
                 saveButton,
                 restartLabel);
 
@@ -190,9 +193,14 @@ public class GuiBuilder {
             visiblePasswordField.setVisible(newVal);
             passwordField.setVisible(!newVal);
         });
+        
+        // --- NEW ---
+        Button generateButton = themeManager.createGeneratorButton();
+        generateButton.setOnAction(e -> showGeneratorDialog(passwordField));
 
-        HBox passBox = new HBox(10, passStack, showHidePassButton);
+        HBox passBox = new HBox(10, passStack, showHidePassButton, generateButton); // Added generateButton
         HBox.setHgrow(passStack, Priority.ALWAYS);
+        // --- END NEW ---
 
         TextField urlField = themeManager.createStyledTextField("URL");
         TextField notesField = themeManager.createStyledTextField("Notes");
@@ -205,8 +213,150 @@ public class GuiBuilder {
         form.getChildren().addAll(title, nameField, usernameField, passBox, urlField, notesField, addButton);
         return form;
     }
+    
+    // --- NEW METHOD ---
+    private void showGeneratorDialog(PasswordField targetPasswordField) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.initStyle(StageStyle.TRANSPARENT);
+        dialog.getDialogPane().getScene().setFill(Color.TRANSPARENT);
+        dialog.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 15;");
+        dialog.getDialogPane().setEffect(themeManager.getLightOuterShadow());
+        dialog.getDialogPane().setPrefWidth(400);
+
+        dialog.setTitle("Password Generator");
+
+        // --- Result Area ---
+        TextField resultField = themeManager.createStyledTextField("Generated Password");
+        resultField.setEditable(false);
+        Button copyButton = themeManager.createCopyButton();
+        copyButton.setOnAction(e -> {
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+            ClipboardContent content = new ClipboardContent();
+            content.putString(resultField.getText());
+            clipboard.setContent(content);
+        });
+        HBox resultBox = new HBox(10, resultField, copyButton);
+        HBox.setHgrow(resultField, Priority.ALWAYS);
+        
+        // --- Password Tab ---
+        VBox passwordTabContent = new VBox(15);
+        passwordTabContent.setPadding(new Insets(10));
+        
+        Label lengthLabel = new Label("Length: 16");
+        lengthLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+        Slider lengthSlider = new Slider(8, 64, 16);
+        lengthSlider.setBlockIncrement(1);
+        lengthSlider.setMajorTickUnit(8);
+        lengthSlider.setMinorTickCount(7);
+        lengthSlider.setShowTickMarks(true);
+        lengthLabel.textProperty().bind(Bindings.format("Length: %.0f", lengthSlider.valueProperty()));
+        themeManager.styleSlider(lengthSlider);
+        
+        CheckBox upperCheck = themeManager.createStyledCheckBox("Uppercase (A-Z)");
+        upperCheck.setSelected(true);
+        CheckBox digitsCheck = themeManager.createStyledCheckBox("Digits (0-9)");
+        digitsCheck.setSelected(true);
+        CheckBox symbolsCheck = themeManager.createStyledCheckBox("Symbols (!@#...)");
+        symbolsCheck.setSelected(true);
+        
+        Button generatePasswordButton = themeManager.createStyledButton("Generate Password");
+        generatePasswordButton.setOnAction(e -> {
+            resultField.setText(PasswordGenerator.generatePassword(
+                (int) lengthSlider.getValue(),
+                upperCheck.isSelected(),
+                digitsCheck.isSelected(),
+                symbolsCheck.isSelected()
+            ));
+        });
+        
+        passwordTabContent.getChildren().addAll(
+            new VBox(5, lengthLabel, lengthSlider),
+            upperCheck, digitsCheck, symbolsCheck,
+            generatePasswordButton
+        );
+        passwordTabContent.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
+
+        // --- Passphrase Tab ---
+        VBox passphraseTabContent = new VBox(15);
+        passphraseTabContent.setPadding(new Insets(10));
+        
+        Label wordsLabel = new Label("Words: 4");
+        wordsLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+        Slider wordsSlider = new Slider(3, 10, 4);
+        wordsSlider.setBlockIncrement(1);
+        wordsSlider.setMajorTickUnit(1);
+        wordsSlider.setSnapToTicks(true);
+        wordsLabel.textProperty().bind(Bindings.format("Words: %.0f", wordsSlider.valueProperty()));
+        themeManager.styleSlider(wordsSlider);
+
+        Label separatorLabel = new Label("Separator:");
+        separatorLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+        TextField separatorField = themeManager.createStyledTextField("-");
+        separatorField.setMaxWidth(100);
+        HBox separatorBox = new HBox(10, separatorLabel, separatorField);
+        separatorBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Button generatePassphraseButton = themeManager.createStyledButton("Generate Passphrase");
+        generatePassphraseButton.setOnAction(e -> {
+            resultField.setText(PasswordGenerator.generatePassphrase(
+                (int) wordsSlider.getValue(),
+                separatorField.getText()
+            ));
+        });
+        
+        passphraseTabContent.getChildren().addAll(
+            new VBox(5, wordsLabel, wordsSlider),
+            separatorBox,
+            generatePassphraseButton
+        );
+        passphraseTabContent.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
+        
+        // --- Tab Pane ---
+        TabPane tabPane = new TabPane();
+        Tab passwordTab = new Tab("Password", passwordTabContent);
+        Tab passphraseTab = new Tab("Passphrase", passphraseTabContent);
+        passwordTab.setClosable(false);
+        passphraseTab.setClosable(false);
+        tabPane.getTabs().addAll(passwordTab, passphraseTab);
+        themeManager.styleTabPane(tabPane);
+        
+        // --- Main Layout ---
+        VBox layout = new VBox(15, tabPane, resultBox);
+        layout.setPadding(new Insets(10));
+        dialog.getDialogPane().setContent(layout);
+
+        ButtonType useButtonType = new ButtonType("Use This", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(useButtonType, ButtonType.CANCEL);
+        
+        // Style buttons
+        Button useButton = (Button) dialog.getDialogPane().lookupButton(useButtonType);
+        useButton.setStyle(themeManager.createStyledButton("Use This", themeManager.getCurrentSuccessColor()).getStyle());
+        Button cancelButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.CANCEL);
+        cancelButton.setStyle(themeManager.createStyledButton("Cancel").getStyle());
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == useButtonType) {
+                return resultField.getText();
+            }
+            return null;
+        });
+        
+        // Generate a password on open
+        Platform.runLater(() -> {
+            generatePasswordButton.fire();
+            lengthSlider.requestFocus();
+        });
+
+        Optional<String> result = dialog.showAndWait();
+        result.ifPresent(password -> {
+            if (password != null && !password.isEmpty()) {
+                targetPasswordField.setText(password);
+            }
+        });
+    }
 
     public VBox buildDetailsForm(LoginEntry login) {
+        // ... (existing code)
         VBox form = new VBox(15);
         form.setPadding(new Insets(10));
 

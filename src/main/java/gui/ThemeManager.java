@@ -1,9 +1,13 @@
 package gui;
 
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox; // Added
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.Slider; // Added
+import javafx.scene.control.Tab; // Added
+import javafx.scene.control.TabPane; // Added
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputControl;
@@ -11,6 +15,7 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Alert;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.InnerShadow;
+import javafx.scene.layout.Region; // Added
 import javafx.scene.paint.Color;
 import javafx.stage.StageStyle;
 import org.kordamp.ikonli.javafx.FontIcon;
@@ -53,6 +58,7 @@ public class ThemeManager {
     }
 
     private boolean isSystemDarkMode() {
+        // ... (existing code)
         String os = System.getProperty("os.name").toLowerCase();
         String command;
         boolean isDark = false;
@@ -105,6 +111,7 @@ public class ThemeManager {
     }
 
     public void updateThemeStyles() {
+        // ... (existing code)
         if (isDarkMode) {
             currentBaseColor = "#383e46";
             currentBaseSemiTransparent = "rgba(56, 62, 70, 0.85)";
@@ -143,6 +150,7 @@ public class ThemeManager {
     }
 
     public void loadThemePreference() {
+        // ... (existing code)
         if (!Files.exists(SETTINGS_FILE)) {
             return;
         }
@@ -157,6 +165,7 @@ public class ThemeManager {
     }
 
     public void saveThemePreference() {
+        // ... (existing code)
         Properties props = new Properties();
         props.setProperty("isDarkMode", String.valueOf(this.isDarkMode));
         try (OutputStream out = Files.newOutputStream(SETTINGS_FILE)) {
@@ -167,6 +176,7 @@ public class ThemeManager {
     }
     
     public TextField createStyledTextField(String prompt) {
+        // ... (existing code)
         TextField field = new TextField();
         field.setPromptText(prompt);
         styleControl(field);
@@ -174,15 +184,22 @@ public class ThemeManager {
     }
 
     public PasswordField createStyledPasswordField(String prompt) {
+        // ... (existing code)
         PasswordField field = new PasswordField();
         field.setPromptText(prompt);
         styleControl(field);
         return field;
     }
     
+    // Overloaded method for default text color
     public Button createStyledButton(String text) {
+        return createStyledButton(text, currentTextColor);
+    }
+    
+    // Modified method to accept a text color
+    public Button createStyledButton(String text, String textColor) {
         Button button = new Button(text);
-        String buttonStyle = "-fx-background-color: " + currentBaseColor + "; -fx-text-fill: " + currentTextColor + "; -fx-background-radius: 10;";
+        String buttonStyle = "-fx-background-color: " + currentBaseColor + "; -fx-text-fill: " + textColor + "; -fx-background-radius: 10;";
         button.setStyle(buttonStyle);
         button.setEffect(lightOuterShadow);
         button.setPrefHeight(35);
@@ -199,6 +216,7 @@ public class ThemeManager {
     }
 
     public void styleControl(TextInputControl control) {
+        // ... (existing code)
         InnerShadow darkInnerShadow = new InnerShadow(5, 1, 1, Color.web(currentDarkShadowColor));
         darkInnerShadow.setOffsetX(2);
         darkInnerShadow.setOffsetY(2);
@@ -232,8 +250,79 @@ public class ThemeManager {
             }
         });
     }
+    
+    // --- NEW METHOD for CheckBox ---
+    public CheckBox createStyledCheckBox(String text) {
+        CheckBox checkBox = new CheckBox(text);
+        checkBox.setStyle("-fx-text-fill: " + currentTextColor + "; -fx-font-size: 14;");
+        checkBox.setPadding(new javafx.geometry.Insets(5));
+
+        // Simplified neumorphic style for the box
+        Region box = (Region) checkBox.lookup(".box");
+        if (box != null) {
+            box.setEffect(lightOuterShadow);
+            box.setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 3;");
+            
+            checkBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal) {
+                    box.setEffect(lightInnerShadow);
+                    box.setStyle("-fx-background-color: " + currentControlInnerBase + "; -fx-background-radius: 3;");
+                } else {
+                    box.setEffect(lightOuterShadow);
+                    box.setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 3;");
+                }
+            });
+        }
+        return checkBox;
+    }
+
+    // --- NEW METHOD for Slider ---
+    public void styleSlider(Slider slider) {
+        slider.applyCss(); // Ensure nodes are available
+        
+        Region track = (Region) slider.lookup(".track");
+        if (track != null) {
+            track.setStyle("-fx-background-color: " + currentControlInnerBase + "; " +
+                           "-fx-background-radius: 5;");
+            track.setEffect(lightInnerShadow);
+        }
+        
+        Region thumb = (Region) slider.lookup(".thumb");
+        if (thumb != null) {
+            thumb.setStyle("-fx-background-color: " + currentBaseColor + "; " +
+                           "-fx-background-radius: 10;");
+            thumb.setEffect(lightOuterShadow);
+        }
+    }
+
+    // --- NEW METHOD for TabPane ---
+    public void styleTabPane(TabPane tabPane) {
+        tabPane.setStyle("-fx-background-color: " + currentBaseColor + ";");
+        
+        // This is tricky without CSS, but we can try to style the header area
+        Region headerArea = (Region) tabPane.lookup(".tab-header-area");
+        if (headerArea != null) {
+            headerArea.setStyle("-fx-background-color: " + currentBaseColor + "; -fx-padding: 5 0 0 0;");
+        }
+
+        tabPane.getTabs().forEach(this::styleTab);
+    }
+    
+    // --- NEW METHOD for Tab ---
+    private void styleTab(Tab tab) {
+        // This is very difficult without CSS.
+        // We'll just style the content area.
+        if (tab.getContent() != null) {
+            tab.getContent().setStyle("-fx-background-color: " + currentBaseColor + "; -fx-padding: 10;");
+        }
+        
+        // We can't easily style the tab button itself without a complex lookup or CSS.
+        // We will rely on the content styling.
+    }
+
 
     public void styleWindowButton(Button button, boolean isCloseButton) {
+        // ... (existing code)
         String baseStyle = "-fx-background-color: transparent; -fx-text-fill: " + currentMutedTextColor + "; -fx-font-weight: bold; -fx-font-size: 14; -fx-background-radius: 5;";
         
         String hoverBgColor = isCloseButton ? currentErrorColor : currentControlInnerBase;
@@ -246,6 +335,7 @@ public class ThemeManager {
     }
 
     public void styleThemeToggle(ToggleButton toggle, FontIcon icon) {
+        // ... (existing code)
         if (isDarkMode) {
             icon.setIconCode(MaterialDesign.MDI_WEATHER_SUNNY);
         } else {
@@ -276,6 +366,7 @@ public class ThemeManager {
     }
     
     public <T> void styleComboBox(ComboBox<T> combo) {
+        // ... (existing code)
         String style = "-fx-background-color: " + currentControlInnerBase + "; " +
                        "-fx-background-radius: 10; " +
                        "-fx-text-fill: " + currentTextColor + "; " +
@@ -317,6 +408,7 @@ public class ThemeManager {
     }
     
     public void styleIconButton(Button button, MaterialDesign iconCode) {
+        // ... (existing code)
         FontIcon icon;
         if (button.getGraphic() instanceof FontIcon) {
             icon = (FontIcon) button.getGraphic();
@@ -348,31 +440,43 @@ public class ThemeManager {
         });
     }
 
+    // --- NEW METHOD ---
+    public Button createGeneratorButton() {
+        Button button = new Button();
+        styleIconButton(button, MaterialDesign.MDI_AUTORENEW); // Using 'autorenew' icon
+        return button;
+    }
+
     public Button createCopyButton() {
+        // ... (existing code)
         Button button = new Button();
         styleIconButton(button, MaterialDesign.MDI_CONTENT_COPY);
         return button;
     }
     
     public Button createNewLoginButton() {
+        // ... (existing code)
         Button button = new Button();
         styleIconButton(button, MaterialDesign.MDI_PLUS);
         return button;
     }
     
     public Button createSettingsButton() {
+        // ... (existing code)
         Button button = new Button();
         styleIconButton(button, MaterialDesign.MDI_SETTINGS);
         return button;
     }
     
     public Button createLogoutButton() {
+        // ... (existing code)
         Button button = new Button();
         styleIconButton(button, MaterialDesign.MDI_LOGOUT);
         return button;
     }
     
     public ToggleButton createShowHideButton() {
+        // ... (existing code)
         ToggleButton showHideButton = new ToggleButton();
         FontIcon eyeIcon = new FontIcon(MaterialDesign.MDI_EYE);
         eyeIcon.setIconSize(16);
@@ -411,6 +515,7 @@ public class ThemeManager {
     }
     
     public void showErrorAlert(String title, String content) {
+        // ... (existing code)
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.initStyle(StageStyle.TRANSPARENT);
         alert.getDialogPane().setStyle("-fx-background-color: " + currentBaseColor + "; -fx-background-radius: 15;");
