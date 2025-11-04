@@ -35,7 +35,6 @@ public class GuiBuilder {
     }
 
     public VBox buildSettingsPane() {
-        // ... (existing code)
         VBox pane = new VBox(15);
         pane.setPadding(new Insets(10));
 
@@ -50,16 +49,26 @@ public class GuiBuilder {
         Label dbTypeLabel = new Label("Database Type:");
         dbTypeLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
         ComboBox<String> dbTypeBox = new ComboBox<>();
-        dbTypeBox.setItems(FXCollections.observableArrayList("SQLITE", "MYSQL"));
+        
+        // --- MODIFIED ---
+        dbTypeBox.setItems(FXCollections.observableArrayList(
+            "SQLITE", 
+            "MYSQL", 
+            "POSTGRESQL", 
+            "FIREBIRD", 
+            "CASSANDRA", 
+            "COUCHDB"
+        ));
         themeManager.styleComboBox(dbTypeBox);
 
         GridPane remoteFields = new GridPane();
         remoteFields.setHgap(10);
         remoteFields.setVgap(10);
 
-        TextField hostField = themeManager.createStyledTextField("Host (e.g., 127.0.0.1)");
-        TextField portField = themeManager.createStyledTextField("Port (e.g., 3306)");
-        TextField dbNameField = themeManager.createStyledTextField("Database Name");
+        // --- MODIFIED prompt text for clarity ---
+        TextField hostField = themeManager.createStyledTextField("Host / IP Address");
+        TextField portField = themeManager.createStyledTextField("Port (e.g., 3306, 5432)");
+        TextField dbNameField = themeManager.createStyledTextField("Database Name / Path");
         TextField userField = themeManager.createStyledTextField("Username");
         PasswordField passField = themeManager.createStyledPasswordField("Password");
 
@@ -75,7 +84,7 @@ public class GuiBuilder {
             }
         }, 0, 1);
         remoteFields.add(portField, 1, 1);
-        remoteFields.add(new Label("DB Name:") {
+        remoteFields.add(new Label("DB Name/Path:") { // Updated label
             {
                 setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
             }
@@ -96,17 +105,21 @@ public class GuiBuilder {
 
         ConfigManager.DbConfig currentDbConfig = mainGui.getDbConfig();
         ConfigManager.DbConfig displayConfig = currentDbConfig;
-        if (currentDbConfig.dbType().equals("MYSQL")) {
+        
+        // --- MODIFIED LOGIC ---
+        // Decrypt if *not* SQLite
+        if (!currentDbConfig.dbType().equals("SQLITE")) {
             try {
                 String host = Encryption.decryptWithIV(currentDbConfig.host(), MasterPassword.getKey());
                 String port = Encryption.decryptWithIV(currentDbConfig.port(), MasterPassword.getKey());
                 String dbName = Encryption.decryptWithIV(currentDbConfig.dbName(), MasterPassword.getKey());
                 String user = Encryption.decryptWithIV(currentDbConfig.user(), MasterPassword.getKey());
                 String pass = Encryption.decryptWithIV(currentDbConfig.pass(), MasterPassword.getKey());
-                displayConfig = new ConfigManager.DbConfig("MYSQL", host, port, dbName, user, pass);
+                displayConfig = new ConfigManager.DbConfig(currentDbConfig.dbType(), host, port, dbName, user, pass);
             } catch (Exception e) {
                 System.err.println("Could not decrypt config to display in settings: " + e.getMessage());
-                displayConfig = new ConfigManager.DbConfig("MYSQL", "", "", "", "", "");
+                // Show blank fields if decryption fails
+                displayConfig = new ConfigManager.DbConfig(currentDbConfig.dbType(), "", "", "", "", "");
             }
         }
 
@@ -117,15 +130,40 @@ public class GuiBuilder {
         userField.setText(displayConfig.user());
         passField.setText(displayConfig.pass());
 
-        remoteFields.setVisible(currentDbConfig.dbType().equals("MYSQL"));
+        // --- MODIFIED LOGIC ---
+        // Show remote fields if not SQLite
+        remoteFields.setVisible(!currentDbConfig.dbType().equals("SQLITE"));
         
         CheckBox migrateDataCheck = new CheckBox("Copy data from current DB to new DB");
         migrateDataCheck.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
         migrateDataCheck.setVisible(false); 
 
         dbTypeBox.valueProperty().addListener((obs, oldVal, newVal) -> {
-            remoteFields.setVisible(newVal.equals("MYSQL"));
+            // --- MODIFIED LOGIC ---
+            // Show remote fields if not SQLite
+            remoteFields.setVisible(!newVal.equals("SQLITE"));
             migrateDataCheck.setVisible(!newVal.equals(currentDbConfig.dbType()));
+            
+            // Set default ports for convenience
+            switch(newVal) {
+                case "MYSQL":
+                    portField.setText("3306");
+                    break;
+                case "POSTGRESQL":
+                    portField.setText("5432");
+                    break;
+                case "FIREBIRD":
+                    portField.setText("3050");
+                    break;
+                case "CASSANDRA":
+                    portField.setText("9042");
+                    break;
+                case "COUCHDB":
+                    portField.setText("5984");
+                    break;
+                default:
+                    portField.clear();
+            }
         });
 
         Label restartLabel = new Label("Restart required to apply database changes.");
@@ -168,6 +206,8 @@ public class GuiBuilder {
         return pane;
     }
 
+    // ... (rest of GuiBuilder.java is unchanged) ...
+    
     public VBox buildAddForm() {
         VBox form = new VBox(15);
         form.setPadding(new Insets(10));

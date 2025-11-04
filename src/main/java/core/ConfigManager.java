@@ -36,7 +36,7 @@ public class ConfigManager {
                 props.load(in);
                 dbType = props.getProperty("db.type", "SQLITE");
                 host = props.getProperty("db.host", "");
-                port = props.getProperty("db.port", "3306");
+                port = props.getProperty("db.port", "3306"); // Default port (will be ignored by SQLite)
                 dbName = props.getProperty("db.name", "rapidcipher");
                 user = props.getProperty("db.user", "");
                 pass = props.getProperty("db.pass", "");
@@ -44,6 +44,7 @@ public class ConfigManager {
                 System.err.println("Failed to load config file, using defaults: " + e.getMessage());
             }
         } else {
+            // Save default config on first run
             saveConfig(new DbConfig(dbType, host, port, dbName, user, pass));
         }
 
@@ -56,14 +57,16 @@ public class ConfigManager {
 
         String warning = "RapidCipher Database Configuration\n";
         
-        if (config.dbType().equals("MYSQL")) {
+        // --- MODIFIED LOGIC ---
+        // Encrypt credentials for ANY remote database, not just MySQL
+        if (!config.dbType().equals("SQLITE")) {
             try {
                 props.setProperty("db.host", Encryption.encryptWithIV(config.host(), MasterPassword.getKey()));
                 props.setProperty("db.port", Encryption.encryptWithIV(config.port(), MasterPassword.getKey()));
                 props.setProperty("db.name", Encryption.encryptWithIV(config.dbName(), MasterPassword.getKey()));
                 props.setProperty("db.user", Encryption.encryptWithIV(config.user(), MasterPassword.getKey()));
                 props.setProperty("db.pass", Encryption.encryptWithIV(config.pass(), MasterPassword.getKey()));
-                warning += "MySQL credentials are encrypted.\n";
+                warning += "Remote database credentials are encrypted.\n";
 
             } catch (IllegalStateException e) {
                 System.err.println("Cannot save config: Master key is not available. " + e.getMessage());
@@ -79,11 +82,12 @@ public class ConfigManager {
                 return;
             }
         } else {
-            props.setProperty("db.host", config.host());
-            props.setProperty("db.port", config.port());
-            props.setProperty("db.name", config.dbName());
-            props.setProperty("db.user", config.user());
-            props.setProperty("db.pass", config.pass());
+            // For SQLite, we don't need to store (or encrypt) remote details
+            props.setProperty("db.host", "");
+            props.setProperty("db.port", "");
+            props.setProperty("db.name", "");
+            props.setProperty("db.user", "");
+            props.setProperty("db.pass", "");
         }
         
         try (OutputStream out = Files.newOutputStream(CONFIG_FILE)) {
