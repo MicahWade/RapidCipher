@@ -20,6 +20,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 
 import org.kordamp.ikonli.javafx.FontIcon;
+import org.kordamp.ikonli.materialdesign.MaterialDesign; 
 
 import core.Database;
 import core.Encryption;
@@ -40,19 +41,27 @@ public class MainGui extends Application {
     private VBox detailsPane;
     private VBox addForm;
     private VBox currentDetailsForm;
+    private VBox settingsPane; 
     private Label statusLabel;
     private StackPane root;
     private VBox mainLayout;
     private SplitPane splitPane;
     private HBox topBar;
+    
     private ToggleButton themeToggle;
     private FontIcon themeIcon;
+    
     private Label titleLabel;
+    private Button newLoginButton; 
+    private Button settingsButton; 
+    private Button logoutButton; 
     private Button minimizeButton;
     private Button closeButton;
     
     private double xOffset = 0;
     private double yOffset = 0;
+    
+    private Stage primaryStage; 
 
 
     public MainGui() {
@@ -84,16 +93,31 @@ public class MainGui extends Application {
         statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
         
         titleLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
+        
+        // --- THIS IS THE FIX ---
+        // Re-style all top-bar icon buttons
         themeManager.styleThemeToggle(themeToggle, themeIcon);
+        themeManager.styleIconButton(newLoginButton, MaterialDesign.MDI_PLUS);
+        themeManager.styleIconButton(settingsButton, MaterialDesign.MDI_SETTINGS);
+        themeManager.styleIconButton(logoutButton, MaterialDesign.MDI_LOGOUT);
+        // --- END OF FIX ---
+        
         themeManager.styleWindowButton(minimizeButton, false);
         themeManager.styleWindowButton(closeButton, true);
 
-        if (loginListView.getSelectionModel().getSelectedItem() == null) {
-            addForm = buildAddForm();
-            detailsPane.getChildren().setAll(addForm);
+        // UPDATED: Rebuild the visible pane to apply new styles
+        if (settingsPane != null && detailsPane.getChildren().get(0) == settingsPane) {
+            settingsPane = buildSettingsPane(); // Rebuild
+            detailsPane.getChildren().setAll(settingsPane); // Re-set
+        } else if (loginListView.getSelectionModel().getSelectedItem() == null) {
+            // Check if addForm is the one visible, or just default to it
+            if (addForm == null || detailsPane.getChildren().get(0) == addForm) {
+                addForm = buildAddForm(); // Rebuild
+                detailsPane.getChildren().setAll(addForm); // Re-set
+            }
         } else {
-            currentDetailsForm = buildDetailsForm(loginListView.getSelectionModel().getSelectedItem());
-            detailsPane.getChildren().setAll(currentDetailsForm);
+            currentDetailsForm = buildDetailsForm(loginListView.getSelectionModel().getSelectedItem()); // Rebuild
+            detailsPane.getChildren().setAll(currentDetailsForm); // Re-set
         }
 
         loginListView.refresh();
@@ -101,6 +125,8 @@ public class MainGui extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        
+        this.primaryStage = primaryStage; 
         
         themeManager.loadThemePreference();
 
@@ -135,33 +161,41 @@ public class MainGui extends Application {
         detailsPane = new VBox(15);
         detailsPane.setPadding(new Insets(20));
         
-        addForm = buildAddForm();
-        detailsPane.getChildren().add(addForm);
+        showAddForm();
 
         loginListView.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
             if (newSelection != null) {
                 currentDetailsForm = buildDetailsForm(newSelection);
                 detailsPane.getChildren().setAll(currentDetailsForm);
             } else {
-                detailsPane.getChildren().setAll(addForm);
+                showAddForm();
             }
         });
 
         titleLabel = new Label("RapidCipher");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         
+        // --- Create buttons using the ThemeManager ---
         themeIcon = new FontIcon();
         themeToggle = new ToggleButton();
         themeToggle.setGraphic(themeIcon);
-        
         themeToggle.setSelected(themeManager.isDarkMode());
         
+        newLoginButton = themeManager.createNewLoginButton();
+        settingsButton = themeManager.createSettingsButton();
+        logoutButton = themeManager.createLogoutButton();
+        
+        // --- Set Actions ---
         themeToggle.setOnAction(e -> {
             themeManager.setDarkMode(themeToggle.isSelected());
             themeManager.updateThemeStyles();
             themeManager.saveThemePreference();
             updateAllStyles(); // Re-style the GUI
         });
+        
+        newLoginButton.setOnAction(e -> showAddForm());
+        settingsButton.setOnAction(e -> showSettingsPane());
+        logoutButton.setOnAction(e -> logout());
 
         minimizeButton = new Button(" _ ");
         minimizeButton.setOnAction(e -> primaryStage.setIconified(true));
@@ -171,7 +205,8 @@ public class MainGui extends Application {
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        topBar = new HBox(10, titleLabel, spacer, themeToggle, minimizeButton, closeButton);
+
+        topBar = new HBox(10, titleLabel, spacer, newLoginButton, themeToggle, settingsButton, logoutButton, minimizeButton, closeButton);
         topBar.setPadding(new Insets(5));
         topBar.setAlignment(Pos.CENTER);
 
@@ -208,9 +243,37 @@ public class MainGui extends Application {
         primaryStage.setMinWidth(800);
         primaryStage.setMinHeight(600);
         
+        // --- Initial Style ---
         updateAllStyles();
         
         primaryStage.show();
+    }
+    
+    private void showAddForm() {
+        loginListView.getSelectionModel().clearSelection();
+        addForm = buildAddForm(); // Rebuild to get fresh button styles
+        detailsPane.getChildren().setAll(addForm);
+    }
+    
+    private void showSettingsPane() {
+        loginListView.getSelectionModel().clearSelection();
+        settingsPane = buildSettingsPane(); // Always rebuild in case styles changed
+        detailsPane.getChildren().setAll(settingsPane);
+    }
+    
+    private VBox buildSettingsPane() {
+        VBox pane = new VBox(20);
+        pane.setPadding(new Insets(10));
+        
+        Label title = new Label("Settings");
+        title.setFont(Font.font("System", FontWeight.BOLD, 18));
+        title.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+        
+        Label placeholder = new Label("More settings will be available here in the future.");
+        placeholder.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
+        
+        pane.getChildren().addAll(title, placeholder); 
+        return pane;
     }
     
     private VBox buildAddForm() {
@@ -233,7 +296,8 @@ public class MainGui extends Application {
         StackPane.setAlignment(visiblePasswordField, Pos.CENTER_LEFT);
         StackPane.setAlignment(passwordField, Pos.CENTER_LEFT);
 
-        ToggleButton showHidePassButton = themeManager.createShowHideButton();
+        // This button is created fresh, so it will get the new theme colors
+        ToggleButton showHidePassButton = themeManager.createShowHideButton(); 
         showHidePassButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
             visiblePasswordField.setVisible(newVal);
             passwordField.setVisible(!newVal);
@@ -270,7 +334,8 @@ public class MainGui extends Application {
         userDisplay.setText(login.getUsername());
         userDisplay.setEditable(false);
         
-        Button copyUserButton = themeManager.createCopyButton();
+        // This button is created fresh, so it will get the new theme colors
+        Button copyUserButton = themeManager.createCopyButton(); 
         copyUserButton.setOnAction(e -> {
             Clipboard clipboard = Clipboard.getSystemClipboard();
             ClipboardContent content = new ClipboardContent();
@@ -288,7 +353,8 @@ public class MainGui extends Application {
         passDisplay.setText("************");
         passDisplay.setEditable(false);
         
-        ToggleButton showHideButton = themeManager.createShowHideButton();
+        // This button is created fresh, so it will get the new theme colors
+        ToggleButton showHideButton = themeManager.createShowHideButton(); 
         showHideButton.selectedProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal) {
                 passDisplay.setText(login.getPassword());
@@ -297,7 +363,8 @@ public class MainGui extends Application {
             }
         });
         
-        Button copyPassButton = themeManager.createCopyButton();
+        // This button is created fresh, so it will get the new theme colors
+        Button copyPassButton = themeManager.createCopyButton(); 
         copyPassButton.setOnAction(e -> {
             Clipboard clipboard = Clipboard.getSystemClipboard();
             ClipboardContent content = new ClipboardContent();
@@ -325,13 +392,8 @@ public class MainGui extends Application {
         Button deleteButton = themeManager.createStyledButton("Delete");
         deleteButton.setStyle(deleteButton.getStyle() + "-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
         deleteButton.setOnAction(e -> deleteLogin(login));
-
-        Button newLoginButton = themeManager.createStyledButton("Add New Login");
-        newLoginButton.setOnAction(e -> {
-            loginListView.getSelectionModel().clearSelection();
-        });
         
-        HBox buttonBar = new HBox(10, deleteButton, newLoginButton);
+        HBox buttonBar = new HBox(10, deleteButton);
         
         form.getChildren().addAll(title, nameDisplay, userBox, passBox, urlDisplay, notesDisplay, buttonBar);
         return form;
@@ -420,6 +482,37 @@ public class MainGui extends Application {
         } else {
             statusLabel.setText("Failed to delete login.");
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + ";");
+        }
+    }
+    
+    private void logout() {
+        // 1. Clear the sensitive data
+        MasterPassword.setKey(null); // Clear the static key
+        loginData.clear(); // Clear the observable list
+        loginListView.refresh();
+        showAddForm(); // Reset view to default
+        
+        // 2. Hide the main window
+        primaryStage.hide();
+
+        // 3. Re-show the authentication prompt
+        AuthManager authManager = new AuthManager(themeManager);
+        boolean proceed = false;
+        try {
+            proceed = authManager.showMasterPasswordPrompt();
+        } catch (Exception e) {
+            e.printStackTrace();
+            themeManager.showErrorAlert("Fatal Error", "Failed to initialize encryption settings.\n" + e.getMessage());
+        }
+        
+        // 4. Decide what to do
+        if (proceed) {
+            // Re-load data and show the window
+            loadDataFromDatabase();
+            primaryStage.show();
+        } else {
+            // User cancelled login, so exit the app
+            Platform.exit();
         }
     }
 }

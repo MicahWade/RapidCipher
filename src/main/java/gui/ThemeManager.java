@@ -239,7 +239,7 @@ public class ThemeManager {
         } else {
             icon.setIconCode(MaterialDesign.MDI_WEATHER_NIGHT);
         }
-        icon.setIconColor(Color.web(currentTextColor));
+        icon.setIconColor(Color.web(currentTextColor)); // Use text color for visibility
         icon.setIconSize(16);
 
         String style = "-fx-background-color: " + currentBaseColor + "; " +
@@ -248,46 +248,89 @@ public class ThemeManager {
                        
         toggle.setStyle(style);
         
-        if (toggle.isSelected()) {
+        toggle.setPrefSize(35, 35);
+        toggle.setMinSize(35, 35);
+        
+        // Re-set listeners to capture new theme colors
+        toggle.setOnMousePressed(e -> {
+            toggle.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";");
             toggle.setEffect(lightInnerShadow);
-        } else {
-            toggle.setEffect(lightOuterShadow);
-        }
+        });
+        toggle.setOnMouseReleased(e -> {
+            toggle.setStyle(style);
+            toggle.setEffect(toggle.isSelected() ? lightInnerShadow : lightOuterShadow);
+        });
+
+        // Set current effect based on selection
+        toggle.setEffect(toggle.isSelected() ? lightInnerShadow : lightOuterShadow);
     }
     
-    public Button createCopyButton() {
-        Button copyButton = new Button();
-        FontIcon copyIcon = new FontIcon(MaterialDesign.MDI_CONTENT_COPY);
-        copyIcon.setIconSize(16);
-        copyIcon.setIconColor(Color.web(currentMutedTextColor));
-        copyButton.setGraphic(copyIcon);
+    // --- NEW PUBLIC STYLING METHOD ---
+    public void styleIconButton(Button button, MaterialDesign iconCode) {
+        FontIcon icon;
+        // Ensure button has a FontIcon graphic
+        if (button.getGraphic() instanceof FontIcon) {
+            icon = (FontIcon) button.getGraphic();
+        } else {
+            icon = new FontIcon();
+            button.setGraphic(icon);
+        }
+        
+        icon.setIconCode(iconCode);
+        icon.setIconSize(16);
+        icon.setIconColor(Color.web(currentMutedTextColor)); // Use current theme color
 
-        String style = "-fx-background-color: " + currentBaseColor + "; " +
+        String style = "-fx-background-color: " + currentBaseColor + "; " + // Use current theme color
                        "-fx-background-radius: 10; " +
                        "-fx-background-insets: 0;";
-        copyButton.setStyle(style);
-        copyButton.setEffect(lightOuterShadow);
+        button.setStyle(style);
+        button.setEffect(lightOuterShadow); // Use current theme effect
         
-        copyButton.setPrefSize(35, 35);
-        copyButton.setMinSize(35, 35);
+        button.setPrefSize(35, 35);
+        button.setMinSize(35, 35);
 
-        copyButton.setOnMousePressed(e -> {
-            copyButton.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";");
-            copyButton.setEffect(lightInnerShadow);
+        // Re-set listeners to capture new theme colors
+        button.setOnMousePressed(e -> {
+            button.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";"); // Use current theme color
+            button.setEffect(lightInnerShadow); // Use current theme effect
         });
-        copyButton.setOnMouseReleased(e -> {
-            copyButton.setStyle(style);
-            copyButton.setEffect(lightOuterShadow);
+        button.setOnMouseReleased(e -> {
+            button.setStyle(style);
+            button.setEffect(lightOuterShadow); // Use current theme effect
         });
+    }
 
-        return copyButton;
+    // --- UPDATED Create Methods to use the Styler ---
+
+    public Button createCopyButton() {
+        Button button = new Button();
+        styleIconButton(button, MaterialDesign.MDI_CONTENT_COPY);
+        return button;
+    }
+    
+    public Button createNewLoginButton() {
+        Button button = new Button();
+        styleIconButton(button, MaterialDesign.MDI_PLUS);
+        return button;
+    }
+    
+    public Button createSettingsButton() {
+        Button button = new Button();
+        styleIconButton(button, MaterialDesign.MDI_SETTINGS);
+        return button;
+    }
+    
+    public Button createLogoutButton() {
+        Button button = new Button();
+        styleIconButton(button, MaterialDesign.MDI_LOGOUT);
+        return button;
     }
     
     public ToggleButton createShowHideButton() {
         ToggleButton showHideButton = new ToggleButton();
         FontIcon eyeIcon = new FontIcon(MaterialDesign.MDI_EYE);
         eyeIcon.setIconSize(16);
-        eyeIcon.setIconColor(Color.web(currentMutedTextColor));
+        eyeIcon.setIconColor(Color.web(currentMutedTextColor)); // Set initial color
         showHideButton.setGraphic(eyeIcon);
 
         String style = "-fx-background-color: " + currentBaseColor + "; " +
@@ -298,6 +341,11 @@ public class ThemeManager {
         
         showHideButton.setPrefSize(35, 35);
         showHideButton.setMinSize(35, 35);
+
+        // This button is re-created every time the form builds,
+        // so we don't need a separate "style" method for it *yet*.
+        // But we MUST update its icon color when it's created.
+        eyeIcon.setIconColor(Color.web(currentMutedTextColor));
 
         showHideButton.setOnMousePressed(e -> {
             showHideButton.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";");
