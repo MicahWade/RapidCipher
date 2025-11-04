@@ -27,6 +27,7 @@ import core.ConfigManager;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List; // Added import
 
 public class MainGui extends Application {
     private static MainGui instance;
@@ -131,7 +132,8 @@ public class MainGui extends Application {
         }
 
         try {
-            database = Database.getInstance(dbConfig);
+            // --- UPDATED ---
+            database = new Database(dbConfig);
         } catch (Exception e) {
             e.printStackTrace();
             themeManager.showErrorAlert("Database Connection Failed",
@@ -199,7 +201,13 @@ public class MainGui extends Application {
         minimizeButton.setOnAction(e -> primaryStage.setIconified(true));
 
         closeButton = new Button(" X ");
-        closeButton.setOnAction(e -> primaryStage.close());
+        // --- UPDATED ---
+        closeButton.setOnAction(e -> {
+            if (database != null) {
+                database.closeConnection();
+            }
+            primaryStage.close();
+        });
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -346,7 +354,53 @@ public class MainGui extends Application {
         }
     }
 
-    void saveDbSettings(ConfigManager.DbConfig newConfig, Label restartLabel) {
+    // --- UPDATED METHOD (SIGNATURE AND LOGIC) ---
+    void saveDbSettings(ConfigManager.DbConfig newConfig, boolean isMigrationChecked, Label restartLabel) {
+        
+        // New Migration Logic
+        if (isMigrationChecked) {
+            Database sourceDb = null;
+            Database destDb = null;
+            try {
+                System.out.println("Starting migration: Connecting to source DB...");
+                sourceDb = this.database; // Use the already open connection
+                
+                System.out.println("Connecting to destination DB...");
+                destDb = new Database(newConfig);
+
+                System.out.println("Reading data from source...");
+                List<LoginEntry> entries = sourceDb.getAllLoginEntries(MasterPassword.getKey());
+                
+                System.out.println("Wiping destination database...");
+                destDb.deleteAllLogins();
+                
+                System.out.println("Writing " + entries.size() + " entries to destination...");
+                for (LoginEntry entry : entries) {
+                    destDb.createLogin(
+                        entry.getName(), 
+                        entry.getUsername(), 
+                        entry.getPassword(), 
+                        entry.getUrl(), 
+                        entry.getNotes()
+                    );
+                }
+                
+                System.out.println("Migration successful.");
+                
+            } catch (Exception e) {
+                e.printStackTrace();
+                themeManager.showErrorAlert("Migration Failed", "Could not migrate data: " + e.getMessage());
+                // Stop! Don't save the config if migration failed.
+                return; 
+            } finally {
+                // Close the *new* database connection, but leave the source (main) one open
+                if (destDb != null) {
+                    destDb.closeConnection();
+                }
+            }
+        }
+
+        // --- Original saveDbSettings logic ---
         ConfigManager.saveConfig(newConfig);
         this.dbConfig = ConfigManager.loadConfig();
         restartLabel.setVisible(true);
@@ -362,7 +416,9 @@ public class MainGui extends Application {
 
         primaryStage.hide();
 
-        // Force re-initialization on next login
+        if (database != null) {
+            database.closeConnection();
+        }
         database = null;
 
         AuthManager authManager = new AuthManager(themeManager);
@@ -377,7 +433,7 @@ public class MainGui extends Application {
         if (proceed) {
             try {
                 this.dbConfig = ConfigManager.loadConfig();
-                database = Database.getInstance(dbConfig);
+                database = new Database(dbConfig); 
             } catch (Exception e) {
                 e.printStackTrace();
                 themeManager.showErrorAlert("Database Connection Failed", "Could not reconnect to database: " + e.getMessage());
