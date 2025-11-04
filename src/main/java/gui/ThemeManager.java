@@ -1,16 +1,18 @@
 package gui;
 
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox; 
+import javafx.scene.control.ListCell; // <-- Import is already here, just was an error in the code
 import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextArea; // Import added
+import javafx.scene.control.TextArea; 
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ToggleButton;
-import javafx.scene.control.Alert; // Import added
+import javafx.scene.control.Alert; 
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.InnerShadow;
 import javafx.scene.paint.Color;
-import javafx.stage.StageStyle; // Import added
+import javafx.stage.StageStyle; 
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 
@@ -265,6 +267,31 @@ public class ThemeManager {
         toggle.setEffect(toggle.isSelected() ? lightInnerShadow : lightOuterShadow);
     }
     
+    public <T> void styleComboBox(ComboBox<T> combo) {
+        // This styling is basic, but ensures it doesn't look completely out of place.
+        String style = "-fx-background-color: " + currentControlInnerBase + "; " +
+                       "-fx-background-radius: 10; " +
+                       "-fx-text-fill: " + currentTextColor + "; " +
+                       "-fx-border-width: 0;";
+        
+        combo.setStyle(style);
+        combo.setEffect(lightInnerShadow);
+        
+        combo.setCellFactory(lv -> new ListCell<T>() { // <-- FIX 1: Use generic type T
+            @Override
+            protected void updateItem(T item, boolean empty) { // <-- FIX 2: Use generic type T
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("-fx-background-color: " + currentBaseColor);
+                } else {
+                    setText(item.toString());
+                    setStyle("-fx-background-color: " + currentBaseColor + "; -fx-text-fill: " + currentTextColor + ";");
+                }
+            }
+        });
+    }
+    
     // --- NEW PUBLIC STYLING METHOD ---
     public void styleIconButton(Button button, MaterialDesign iconCode) {
         FontIcon icon;
@@ -341,10 +368,7 @@ public class ThemeManager {
         
         showHideButton.setPrefSize(35, 35);
         showHideButton.setMinSize(35, 35);
-
-        // This button is re-created every time the form builds,
-        // so we don't need a separate "style" method for it *yet*.
-        // But we MUST update its icon color when it's created.
+        
         eyeIcon.setIconColor(Color.web(currentMutedTextColor));
 
         showHideButton.setOnMousePressed(e -> {

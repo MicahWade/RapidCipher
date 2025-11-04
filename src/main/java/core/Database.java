@@ -13,33 +13,63 @@ import java.sql.Statement;
 public class Database {
     private static Database instance;
     private Connection connection;
-    private static final String DB_PATH = System.getProperty("user.home") + "/Documents/RapidCipher/main.db";
-    private static final String DB_URL = "jdbc:sqlite:" + DB_PATH;
+    
+    // ADDED: Load config
+    private static final core.ConfigManager.DbConfig config = ConfigManager.loadConfig();
+
+    private static final String SQLITE_DB_PATH = System.getProperty("user.home") + "/Documents/RapidCipher/main.db";
+    private static final String SQLITE_DB_URL = "jdbc:sqlite:" + SQLITE_DB_PATH;
+
 
     private Database() throws SQLException {
         try {
-            // Ensure directory exists before connecting
-            Path dbPath = Paths.get(DB_PATH);
-            Path parentDir = dbPath.getParent();
-            if (parentDir != null && !Files.exists(parentDir)) {
-                Files.createDirectories(parentDir);
-                System.out.println("Created directories for: " + parentDir.toString());
+            String dbUrl;
+            
+            if (config.dbType().equals("MYSQL")) {
+                // Connect to remote MySQL database
+                System.out.println("Connecting to MySQL database...");
+                try {
+                    // Ensure the driver is loaded
+                    Class.forName("com.mysql.cj.jdbc.Driver");
+                } catch (ClassNotFoundException e) {
+                    System.err.println("MySQL JDBC Driver not found. Add it to pom.xml.");
+                    throw new SQLException("MySQL Driver not found", e);
+                }
+                
+                dbUrl = "jdbc:mysql://" + config.host() + ":" + config.port() + "/" + config.dbName() +
+                        "?useSSL=true&requireSSL=true"; // Force SSL
+                
+                // WARNING: User and Pass are sent. This connection MUST be secure.
+                connection = DriverManager.getConnection(dbUrl, config.user(), config.pass());
+                System.out.println("Connected to MySQL at " + dbUrl);
+
+            } else {
+                // Default to local SQLite database
+                System.out.println("Connecting to SQLite database...");
+                Path dbPath = Paths.get(SQLITE_DB_PATH);
+                Path parentDir = dbPath.getParent();
+                if (parentDir != null && !Files.exists(parentDir)) {
+                    Files.createDirectories(parentDir);
+                    System.out.println("Created directories for: " + parentDir.toString());
+                }
+                dbUrl = SQLITE_DB_URL;
+                connection = DriverManager.getConnection(dbUrl);
+                System.out.println("Connected to SQLite at " + dbUrl);
             }
 
-            connection = DriverManager.getConnection(DB_URL);
-            System.out.println("Connected to SQLite at " + DB_URL);
             checkAndCreateloginsTable();
         } catch (SQLException e) {
             e.printStackTrace();
             throw e;
         } catch (Exception e) {
             // Catch IOException or others from Files.createDirectories
-            System.err.println("Failed to create directories: " + e.getMessage());
+            System.err.println("Failed to create directories or connect: " + e.getMessage());
             throw new SQLException(e);
         }
     }
 
     private void checkAndCreateloginsTable() throws SQLException {
+        // This logic is generic and works for both DBs
         if (!doesTableExist("logins") || !isPasswordTableSchemaCorrect()) {
             createloginsTable();
         }
@@ -72,14 +102,30 @@ public class Database {
     }
 
     private void createloginsTable() throws SQLException {
-        // UPDATED to include a primary key ID
-        String createTableSQL = "CREATE TABLE IF NOT EXISTS logins (" +
+        
+        String createTableSQL;
+        
+        if (config.dbType().equals("MYSQL")) {
+             // MySQL specific-syntax (e.g., auto_increment)
+             // Using TEXT as blob-like storage for the encrypted base64 strings
+            createTableSQL = "CREATE TABLE IF NOT EXISTS logins (" +
+                "id BIGINT PRIMARY KEY AUTO_INCREMENT, " +
+                "name TEXT NOT NULL, " +
+                "username TEXT NOT NULL, " +
+                "password TEXT NOT NULL, " +
+                "url TEXT, " +
+                "notes TEXT);";
+        } else {
+            // SQLite syntax
+            createTableSQL = "CREATE TABLE IF NOT EXISTS logins (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "name TEXT NOT NULL, " +
                 "username TEXT NOT NULL, " +
                 "password TEXT NOT NULL, " +
                 "url TEXT, " +
                 "notes TEXT);";
+        }
+        
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(createTableSQL);
             System.out.println("logins table created or verified.");

@@ -25,6 +25,7 @@ import org.kordamp.ikonli.materialdesign.MaterialDesign;
 import core.Database;
 import core.Encryption;
 import core.MasterPassword;
+import core.ConfigManager; // ADDED
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -34,7 +35,6 @@ public class MainGui extends Application {
     private Database database;
     private ObservableList<LoginEntry> loginData;
     
-    // Add a ThemeManager instance
     private ThemeManager themeManager;
 
     private ListView<LoginEntry> loginListView;
@@ -62,17 +62,30 @@ public class MainGui extends Application {
     private double yOffset = 0;
     
     private Stage primaryStage; 
+    
+    // ADDED field for the config
+    private ConfigManager.DbConfig dbConfig;
 
 
     public MainGui() {
         instance = this;
         this.themeManager = new ThemeManager(); 
         
+        // ADDED: Load config on startup
+        this.dbConfig = ConfigManager.loadConfig();
+        
         try {
             database = Database.getInstance();
             loginData = FXCollections.observableArrayList();
         } catch (SQLException e) {
             e.printStackTrace();
+            // ADDED: Show error if DB connection fails
+            Platform.runLater(() -> {
+                themeManager.showErrorAlert("Database Connection Failed",
+                    "Could not connect to the database: " + e.getMessage() + "\n" +
+                    "Please check your settings in config.properties or the Settings menu.");
+                Platform.exit();
+            });
         }
     }
 
@@ -94,13 +107,11 @@ public class MainGui extends Application {
         
         titleLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
         
-        // --- THIS IS THE FIX ---
         // Re-style all top-bar icon buttons
         themeManager.styleThemeToggle(themeToggle, themeIcon);
         themeManager.styleIconButton(newLoginButton, MaterialDesign.MDI_PLUS);
         themeManager.styleIconButton(settingsButton, MaterialDesign.MDI_SETTINGS);
         themeManager.styleIconButton(logoutButton, MaterialDesign.MDI_LOGOUT);
-        // --- END OF FIX ---
         
         themeManager.styleWindowButton(minimizeButton, false);
         themeManager.styleWindowButton(closeButton, true);
@@ -135,7 +146,10 @@ public class MainGui extends Application {
         
         boolean proceed = false;
         try {
-            proceed = authManager.showMasterPasswordPrompt();
+            // This will fail if DB connection failed in constructor
+            if (database != null) { 
+                proceed = authManager.showMasterPasswordPrompt();
+            }
         } catch (Exception e) {
             e.printStackTrace();
             themeManager.showErrorAlert("Fatal Error", "Failed to initialize encryption settings.\n" + e.getMessage());
@@ -261,18 +275,111 @@ public class MainGui extends Application {
         detailsPane.getChildren().setAll(settingsPane);
     }
     
+    // --- HEAVILY UPDATED buildSettingsPane ---
     private VBox buildSettingsPane() {
-        VBox pane = new VBox(20);
+        VBox pane = new VBox(15); // Use 15 spacing
         pane.setPadding(new Insets(10));
         
         Label title = new Label("Settings");
         title.setFont(Font.font("System", FontWeight.BOLD, 18));
         title.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
         
-        Label placeholder = new Label("More settings will be available here in the future.");
-        placeholder.setStyle("-fx-text-fill: " + themeManager.getCurrentMutedTextColor() + ";");
+        // --- Database Settings ---
+        Label dbTitle = new Label("Database Configuration");
+        dbTitle.setFont(Font.font("System", FontWeight.BOLD, 16));
+        dbTitle.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+
+        Label dbTypeLabel = new Label("Database Type:");
+        dbTypeLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+        ComboBox<String> dbTypeBox = new ComboBox<>();
+        dbTypeBox.setItems(FXCollections.observableArrayList("SQLITE", "MYSQL"));
+        themeManager.styleComboBox(dbTypeBox); // Apply theme
         
-        pane.getChildren().addAll(title, placeholder); 
+        // --- Remote Fields Pane ---
+        GridPane remoteFields = new GridPane();
+        remoteFields.setHgap(10);
+        remoteFields.setVgap(10);
+
+        TextField hostField = themeManager.createStyledTextField("Host (e.g., 127.0.0.1)");
+        TextField portField = themeManager.createStyledTextField("Port (e.g., 3306)");
+        TextField dbNameField = themeManager.createStyledTextField("Database Name");
+        TextField userField = themeManager.createStyledTextField("Username");
+        PasswordField passField = themeManager.createStyledPasswordField("Password");
+
+        remoteFields.add(new Label("Host:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 0);
+        remoteFields.add(hostField, 1, 0);
+        remoteFields.add(new Label("Port:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 1);
+        remoteFields.add(portField, 1, 1);
+        remoteFields.add(new Label("DB Name:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 2);
+        remoteFields.add(dbNameField, 1, 2);
+        remoteFields.add(new Label("User:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 3);
+        remoteFields.add(userField, 1, 3);
+        remoteFields.add(new Label("Password:") {{ setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";"); }}, 0, 4);
+        remoteFields.add(passField, 1, 4);
+
+        // --- Set initial values from loaded config ---
+        dbTypeBox.setValue(dbConfig.dbType());
+        hostField.setText(dbConfig.host());
+        portField.setText(dbConfig.port());
+        dbNameField.setText(dbConfig.dbName());
+        userField.setText(dbConfig.user());
+        passField.setText(dbConfig.pass());
+
+        // --- Toggle visibility ---
+        remoteFields.setVisible(dbConfig.dbType().equals("MYSQL"));
+        dbTypeBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            remoteFields.setVisible(newVal.equals("MYSQL"));
+        });
+        
+        // --- Save Button and Warnings ---
+        Label restartLabel = new Label("Restart required to apply database changes.");
+        restartLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + "; -fx-font-weight: bold;");
+        restartLabel.setVisible(false);
+        
+        Label securityWarning = new Label("DANGER: Remote database credentials will be stored in plain text in config.properties. " +
+                                           "Ensure your connection is over SSL/VPN.");
+        securityWarning.setStyle("-fx-text-fill: " + themeManager.getCurrentErrorColor() + "; -fx-font-weight: bold;");
+        securityWarning.setWrapText(true);
+
+        Button saveButton = themeManager.createStyledButton("Save Database Settings");
+        saveButton.setOnAction(e -> {
+            ConfigManager.DbConfig newConfig = new ConfigManager.DbConfig(
+                dbTypeBox.getValue(),
+                hostField.getText(),
+                portField.getText(),
+                dbNameField.getText(),
+                userField.getText(),
+                passField.getText()
+            );
+            ConfigManager.saveConfig(newConfig);
+            this.dbConfig = newConfig; // Update in-memory config
+            restartLabel.setVisible(true);
+            statusLabel.setText("Settings saved. Please restart.");
+            statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
+        });
+
+        pane.getChildren().addAll(
+            title, 
+            dbTitle, 
+            new HBox(10, dbTypeLabel, dbTypeBox),
+            remoteFields,
+            securityWarning,
+            saveButton,
+            restartLabel
+        ); 
+        
+        // Make fields fill width
+        hostField.setMaxWidth(Double.MAX_VALUE);
+        portField.setMaxWidth(Double.MAX_VALUE);
+        dbNameField.setMaxWidth(Double.MAX_VALUE);
+        userField.setMaxWidth(Double.MAX_VALUE);
+        passField.setMaxWidth(Double.MAX_VALUE);
+        GridPane.setHgrow(hostField, Priority.ALWAYS);
+        GridPane.setHgrow(portField, Priority.ALWAYS);
+        GridPane.setHgrow(dbNameField, Priority.ALWAYS);
+        GridPane.setHgrow(userField, Priority.ALWAYS);
+        GridPane.setHgrow(passField, Priority.ALWAYS);
+        
         return pane;
     }
     
