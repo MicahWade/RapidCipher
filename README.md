@@ -6,7 +6,7 @@ RapidCipher is a secure, flexible password manager built with JavaFX. It provide
 
 * **Master Password Protection:** A single, secure master password encrypts and decrypts your entire vault.  
 * **Strong Encryption:** Uses AES-256 (via AES/CBC/PKCS5Padding) and PBKDF2 for key derivation to protect your data.  
-* **Flexible Database Support:** Connect to a local SQLite file (default) or a remote MySQL or PostgreSQL database. See [MYSQL\_SETUP.md](https://www.google.com/search?q=MYSQL_SETUP.md) for a guide on setting up MySQL.  
+* **Flexible Database Support:** Connect to a local SQLite file (default) or a remote MySQL or PostgreSQL database. See [MYSQL\_SETUP.md](https://github.com/MicahWade/RapidCipher/blob/main/MYSQL_SETUP.md) for a guide on setting up MySQL.  
 * **Database Migration:** Easily migrate all your encrypted data from one database type to another via the in-app settings.  
 * **Modern Neumorphic UI:** A clean, minimal interface built with JavaFX.  
 * **Light/Dark Mode:** Automatically detects your system's theme (Windows, macOS, Linux) and provides a manual toggle to override it.  
@@ -19,13 +19,13 @@ RapidCipher is a secure, flexible password manager built with JavaFX. It provide
 
 ## **Tech Stack**
 
-* **Java:** Built on JDK 21\.  
+* **Java:** Built on JDK 21.  
 * **JavaFX:** Used for the entire graphical user interface.  
 * **Maven:** For project management and dependencies.  
 * **Ikonli:** For vector-based icons in the UI.  
 * **Database Drivers:**  
   * SQLite-JDBC  
-  * MySQL Connector/J  
+  * MySQL Connector  
   * PostgreSQL JDBC Driver
 
 ## **How to Run**
@@ -37,17 +37,16 @@ RapidCipher is a secure, flexible password manager built with JavaFX. It provide
 
 ### **Running the Compiled .jar File (Recommended)**
 
-1. Build the project one time using Maven (if you haven't already):  
-   mvn clean package
+1. Download From [Release](https://github.com/MicahWade/RapidCipher/releases/tag/Main)
 
-2. This creates a RapidCipher-0.0.1-SNAPSHOT.jar file in the target/ directory.  
+2. This creates a RapidCipher-1.x.x.jar file in the target/ directory.  
 3. You can run the application by double-clicking the .jar file or from the command line:  
-   java \-jar target/RapidCipher-0.0.1-SNAPSHOT.jar
+   java \-jar target/RapidCipher-1.x.x.jar
 
 ### **Running from Source (For Development)**
 
 1. **Clone the repository:**  
-   git clone \[https://github.com/MicahWade/RapidCipher\](https://github.com/MicahWade/RapidCipher)  
+   git clone [https://github.com/MicahWade/RapidCipher](https://github.com/MicahWade/RapidCipher)  
    cd rapidcipher
 
 2. **Compile and build the project:**  
@@ -63,4 +62,4 @@ By default, the application will create and use a local **SQLite** database file
 
 ## **License**
 
-This project is licensed under the GNU Affero General Public License v3.0 \- see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
+This project is licensed under the GNU Affero General Public License v3.0 \- see the [LICENSE](https://github.com/MicahWade/RapidCipher/blob/main/LICENSE) file for details.
