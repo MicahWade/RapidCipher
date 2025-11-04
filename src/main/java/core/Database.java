@@ -4,12 +4,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import javax.crypto.SecretKey;
-import database.*; // Import the new package
+import database.*;
 import gui.LoginEntry;
 
 public class Database {
     
-    private IDatabaseDriver driver; // Use the interface
+    private IDatabaseDriver driver;
 
     public Database(ConfigManager.DbConfig config) throws SQLException {
         
@@ -36,7 +36,6 @@ public class Database {
                 break;
         }
 
-        // Connect using the selected driver
         try {
             driver.connect(config);
         } catch (Exception e) {

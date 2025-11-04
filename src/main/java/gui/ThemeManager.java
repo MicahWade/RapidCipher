@@ -189,12 +189,10 @@ public class ThemeManager {
         return field;
     }
     
-    // Overloaded method for default text color
     public Button createStyledButton(String text) {
         return createStyledButton(text, currentTextColor);
     }
     
-    // Modified method to accept a text color
     public Button createStyledButton(String text, String textColor) {
         Button button = new Button(text);
         String buttonStyle = "-fx-background-color: " + currentBaseColor + "; -fx-text-fill: " + textColor + "; -fx-background-radius: 10;";
@@ -248,7 +246,6 @@ public class ThemeManager {
         });
     }
     
-    // --- NEW METHOD for CheckBox ---
     public CheckBox createStyledCheckBox(String text) {
         CheckBox checkBox = new CheckBox(text);
         checkBox.setStyle("-fx-text-fill: " + currentTextColor + "; -fx-font-size: 14;");
@@ -285,7 +282,6 @@ public class ThemeManager {
         return checkBox;
     }
 
-    // --- NEW METHOD for Slider ---
     public void styleSlider(Slider slider) {
         slider.applyCss(); // Ensure nodes are available
         
@@ -304,7 +300,6 @@ public class ThemeManager {
         }
     }
 
-    // --- UPDATED METHOD for TabPane ---
     public void styleTabPane(TabPane tabPane) {
         // This styles the entire TabPane container, including the content area background
         tabPane.setStyle("-fx-background-color: " + currentBaseColor + ";");
@@ -315,8 +310,8 @@ public class ThemeManager {
             Region headerArea = (Region) tabPane.lookup(".tab-header-area");
             if (headerArea != null) {
                 headerArea.setStyle(
-                    "-fx-background-color: " + currentBaseColor + "; " + // Background of the whole tab bar
-                    "-fx-padding: 3 0 0 5;" // Padding for the bar
+                    "-fx-background-color: " + currentBaseColor + "; " + 
+                    "-fx-padding: 3 0 0 5;"
                 );
             }
             
@@ -338,7 +333,6 @@ public class ThemeManager {
                     );
                     node.setEffect(lightInnerShadow);
                     
-                    // Try to set text color
                     Label tabLabel = (Label) node.lookup(".tab-label");
                     if (tabLabel != null) {
                         tabLabel.setStyle("-fx-text-fill: " + currentMutedTextColor + ";");
@@ -373,9 +367,7 @@ public class ThemeManager {
         tabPane.getTabs().forEach(this::styleTabContent);
     }
     
-    // --- RENAMED/UPDATED METHOD for Tab Content ---
     private void styleTabContent(Tab tab) {
-        // We'll just style the content area.
         if (tab.getContent() != null) {
             tab.getContent().setStyle("-fx-background-color: " + currentBaseColor + "; -fx-padding: 10;");
         }
@@ -497,7 +489,6 @@ public class ThemeManager {
         });
     }
 
-    // --- NEW METHOD ---
     public Button createGeneratorButton() {
         Button button = new Button();
         styleIconButton(button, MaterialDesign.MDI_AUTORENEW); // Using 'autorenew' icon

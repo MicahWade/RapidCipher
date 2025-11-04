@@ -44,7 +44,6 @@ public class ConfigManager {
                 System.err.println("Failed to load config file, using defaults: " + e.getMessage());
             }
         } else {
-            // Save default config on first run
             saveConfig(new DbConfig(dbType, host, port, dbName, user, pass));
         }
 
@@ -57,8 +56,7 @@ public class ConfigManager {
 
         String warning = "RapidCipher Database Configuration\n";
         
-        // --- MODIFIED LOGIC ---
-        // Encrypt credentials for ANY remote database, not just MySQL
+        // Encrypt credentials for ANY remote database
         if (!config.dbType().equals("SQLITE")) {
             try {
                 props.setProperty("db.host", Encryption.encryptWithIV(config.host(), MasterPassword.getKey()));

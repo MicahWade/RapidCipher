@@ -27,7 +27,7 @@ import core.ConfigManager;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.List; // Added import
+import java.util.List;
 
 public class MainGui extends Application {
     private static MainGui instance;
@@ -201,7 +201,6 @@ public class MainGui extends Application {
         minimizeButton.setOnAction(e -> primaryStage.setIconified(true));
 
         closeButton = new Button(" X ");
-        // --- UPDATED ---
         closeButton.setOnAction(e -> {
             if (database != null) {
                 database.closeConnection();
@@ -431,7 +430,6 @@ public class MainGui extends Application {
             }
         }
 
-        // --- Original saveDbSettings logic ---
         ConfigManager.saveConfig(newConfig);
         this.dbConfig = ConfigManager.loadConfig();
         restartLabel.setVisible(true);
