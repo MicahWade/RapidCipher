@@ -46,7 +46,7 @@ RapidCipher is a secure, flexible password manager built with JavaFX. It provide
 ### **Running from Source (For Development)**
 
 1. **Clone the repository:**  
-   git clone [https://github.com/MicahWade/RapidCipher](https://github.com/MicahWade/RapidCipher)  
+   git clone [https://github.com/MicahWade/RapidCipher.git](https://github.com/MicahWade/RapidCipher.git)  
    cd rapidcipher
 
 2. **Compile and build the project:**  
