@@ -21,12 +21,9 @@ import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
 
 import core.Database;
-import core.Encryption;
 import core.MasterPassword;
 import core.ConfigManager;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.List;
 
 public class MainGui extends Application {

@@ -1,7 +1,5 @@
 package core;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.List;
 import javax.crypto.SecretKey;
 import database.*;
@@ -11,9 +9,8 @@ public class Database {
     
     private IDatabaseDriver driver;
 
-    public Database(ConfigManager.DbConfig config) throws Exception { // REFACTORED
+    public Database(ConfigManager.DbConfig config) throws Exception { 
         
-        // This constructor now acts as a factory
         switch (config.dbType().toUpperCase()) {
             case "MYSQL":
                 this.driver = new MySqlDriver();
@@ -40,7 +37,7 @@ public class Database {
             driver.connect(config);
         } catch (Exception e) {
             e.printStackTrace();
-            throw new Exception("Failed to initialize database driver: " + e.getMessage(), e); // REFACTORED
+            throw new Exception("Failed to initialize database driver: " + e.getMessage(), e); 
         }
     }
     

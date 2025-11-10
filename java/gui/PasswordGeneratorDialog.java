@@ -5,16 +5,12 @@ import core.PasswordGenerator;
 import javafx.stage.Stage;
 import javafx.scene.Scene;
 
-import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.Dialog; // Keep Dialog for original reference if needed, but not extended
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.Spinner;
