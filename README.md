@@ -41,7 +41,7 @@ RapidCipher is a secure, flexible password manager built with JavaFX. It provide
 
 ### **Running the Compiled .jar File (Recommended)**
 
-1.  Download From [Release](https://github.com/MicahWade/RapidCipher/releases/tag/Main)
+1.  Download From [Release](https://github.com/MicahWade/RapidCipher/releases)
 2.  This creates a RapidCipher-1.x.x.jar file in the target/ directory.
 3.  You can run the application by double-clicking the .jar file or from the command line:
     `java -jar target/RapidCipher-1.x.x.jar`
