@@ -75,6 +75,16 @@ public class MainGui extends Application {
     public static synchronized MainGui getInstance() {
         return instance;
     }
+    
+    // --- ADDED GETTERS FOR GUIBUILDER ---
+    public ConfigManager.DbConfig getDbConfig() {
+        return this.dbConfig;
+    }
+
+    public Label getStatusLabel() {
+        return this.statusLabel;
+    }
+    // --- END ADDED GETTERS ---
 
     private void updateAllStyles() {
         root.setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 20;");
@@ -273,6 +283,22 @@ public class MainGui extends Application {
         settingsPane = guiBuilder.buildSettingsPane();
         detailsPane.getChildren().setAll(settingsPane);
     }
+    
+    private void logout() {
+        if (database != null) {
+            database.closeConnection();
+        }
+        primaryStage.close();
+        
+        // Restart the application logic
+        Platform.runLater(() -> {
+            try {
+                new MainGui().start(new Stage());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
 
     private void loadDataFromDatabase() {
         if (database == null) {
@@ -403,4 +429,8 @@ public class MainGui extends Application {
         this.dbConfig = ConfigManager.loadConfig();
         restartLabel.setVisible(true);
         statusLabel.setText("Settings saved. Please restart.");
-        statusLabel.setStyle("-fx-text-fill
+        // ***FIXED***: Completed the incomplete setStyle line
+        statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
+    } // ***FIXED***: Added missing brace for method
+
+} // ***FIXED***: Added missing brace for class

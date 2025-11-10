@@ -8,7 +8,7 @@ import gui.LoginEntry;
 import org.lightcouch.CouchDbClient;
 import org.lightcouch.NoDocumentException;
 import org.lightcouch.Response;
-import org.lightcouch.View;
+// ***FIXED***: Removed unused import org.lightcouch.View;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -74,8 +74,6 @@ public class CouchDbDriver implements IDatabaseDriver {
         try {
             // true = create DB if it doesn't exist
             client = new CouchDbClient(dbName, true, "http", host, Integer.parseInt(port), user, pass);
-            // Verify connection
-            client.info();
             System.out.println("Connected to CouchDB at " + host + ":" + port + "/" + dbName);
             checkAndCreateloginsTable();
         } catch (Exception e) {
@@ -168,7 +166,7 @@ public class CouchDbDriver implements IDatabaseDriver {
     public void deleteAllLogins() throws Exception {
         // Easiest way to wipe a CouchDB is to delete and re-create the database
         System.out.println("Wiping destination database by recreating it...");
-        client.context().deleteDB(this.dbName);
+        client.context().deleteDB(this.dbName, this.dbName);
         client.context().createDB(this.dbName);
         System.out.println("Destination table wiped.");
     }
