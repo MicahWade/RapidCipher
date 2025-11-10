@@ -52,7 +52,8 @@ public class ThemeManager {
     private InnerShadow lightInnerShadow;
 
     private static final String DB_DIR_PATH = System.getProperty("user.home") + "/Documents/RapidCipher";
-    private static final Path SETTINGS_FILE = Paths.get(DB_DIR_PATH, "settings.properties");
+    // [FIXED] Point to the single config.properties file
+    private static final Path SETTINGS_FILE = Paths.get(DB_DIR_PATH, "config.properties");
 
     public ThemeManager() {
         this.isDarkMode = isSystemDarkMode();
@@ -151,25 +152,39 @@ public class ThemeManager {
     }
 
     public void loadThemePreference() {
-        if (!Files.exists(SETTINGS_FILE)) {
-            return;
-        }
+        // [FIXED] Load from the existing config.properties file
         Properties props = new Properties();
-        try (InputStream in = Files.newInputStream(SETTINGS_FILE)) {
-            props.load(in);
-            this.isDarkMode = Boolean.parseBoolean(props.getProperty("isDarkMode", String.valueOf(this.isDarkMode)));
-        } catch (Exception e) {
-            System.err.println("Failed to load theme preference: " + e.getMessage());
+        if (Files.exists(SETTINGS_FILE)) {
+            try (InputStream in = Files.newInputStream(SETTINGS_FILE)) {
+                props.load(in);
+            } catch (Exception e) {
+                System.err.println("Failed to load config file for theme: " + e.getMessage());
+                return; // Don't proceed
+            }
         }
+        // [FIXED] Use a prefixed key to avoid collisions
+        this.isDarkMode = Boolean.parseBoolean(props.getProperty("theme.isDarkMode", String.valueOf(this.isDarkMode)));
         updateThemeStyles();
     }
 
     public void saveThemePreference() {
+        // [FIXED] Load existing properties first to avoid overwriting DB settings
         Properties props = new Properties();
-        props.setProperty("isDarkMode", String.valueOf(this.isDarkMode));
+        if (Files.exists(SETTINGS_FILE)) {
+            try (InputStream in = Files.newInputStream(SETTINGS_FILE)) {
+                props.load(in);
+            } catch (Exception e) {
+                System.err.println("Failed to read existing config to save theme: " + e.getMessage());
+            }
+        }
+        
+        // [FIXED] Use a prefixed key
+        props.setProperty("theme.isDarkMode", String.valueOf(this.isDarkMode));
         
         try (OutputStream out = Files.newOutputStream(SETTINGS_FILE)) {
-            props.store(out, "RapidCipher User Preferences");
+            // [FIXED] Store with a null comment so we don't overwrite the comment
+            // set by ConfigManager.
+            props.store(out, null);
         } catch (Exception e) {
             System.err.println("Failed to save theme preference: " + e.getMessage());
         }
@@ -457,34 +472,55 @@ public class ThemeManager {
         });
     }
     
+    // [FIXED] This method now handles a null iconCode to prevent the NullPointerException
+    // and correctly styles text-only buttons.
     public void styleIconButton(Button button, MaterialDesign iconCode) {
-        FontIcon icon;
-        if (button.getGraphic() instanceof FontIcon) {
-            icon = (FontIcon) button.getGraphic();
-        } else {
-            icon = new FontIcon();
-            button.setGraphic(icon);
-        }
+        FontIcon icon = null; // Initialize as null
         
-        icon.setIconCode(iconCode);
-        icon.setIconSize(16);
-        icon.setIconColor(Color.web(currentMutedTextColor));
+        if (iconCode != null) { // Only setup icon if one is provided
+            if (button.getGraphic() instanceof FontIcon) {
+                icon = (FontIcon) button.getGraphic();
+            } else {
+                icon = new FontIcon();
+                button.setGraphic(icon);
+            }
+            
+            icon.setIconCode(iconCode); // This is now safe
+            icon.setIconSize(16);
+            icon.setIconColor(Color.web(currentMutedTextColor));
+        } else {
+            // No icon code, ensure no graphic is set
+            button.setGraphic(null);
+        }
 
+        // [RE-FIXED] Use a variable that can be modified, then assign to a final
+        // variable for use in the lambda.
         String style = "-fx-background-color: " + currentBaseColor + "; " +
                        "-fx-background-radius: 10; " +
                        "-fx-background-insets: 0;";
-        button.setStyle(style);
+        
+        // If it's a text-only button (no icon), add some padding
+        if (iconCode == null) {
+            style += " -fx-padding: 5 15 5 15;";
+        }
+        
+        // This 'finalStyle' is "effectively final" for the lambdas.
+        final String finalStyle = style; 
+                       
+        button.setStyle(finalStyle);
         button.setEffect(lightOuterShadow);
         
-        button.setPrefSize(35, 35);
-        button.setMinSize(35, 35);
+        if (iconCode != null) { // Only set fixed size for icon buttons
+            button.setPrefSize(35, 35);
+            button.setMinSize(35, 35);
+        }
 
         button.setOnMousePressed(e -> {
-            button.setStyle(style + "-fx-background-color: " + currentControlInnerBase + ";");
+            button.setStyle(finalStyle + "-fx-background-color: " + currentControlInnerBase + ";");
             button.setEffect(lightInnerShadow);
         });
         button.setOnMouseReleased(e -> {
-            button.setStyle(style);
+            button.setStyle(finalStyle);
             button.setEffect(lightOuterShadow);
         });
     }
