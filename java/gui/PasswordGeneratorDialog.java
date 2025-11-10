@@ -1,6 +1,10 @@
 package gui;
 
 import core.PasswordGenerator;
+// Import Stage and Scene
+import javafx.stage.Stage;
+import javafx.scene.Scene;
+
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javafx.application.Platform;
@@ -10,7 +14,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.Dialog;
+import javafx.scene.control.Dialog; // Keep Dialog for original reference if needed, but not extended
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.Spinner;
@@ -27,28 +31,40 @@ import javafx.scene.paint.Color;
 import javafx.stage.StageStyle;
 
 /**
- * A custom dialog for generating secure passwords and passphrases.
+ * A custom window (Stage) for generating secure passwords and passphrases.
  * It is styl-ed using the provided ThemeManager.
  */
-public class PasswordGeneratorDialog extends Dialog<String> {
-
-    private final ThemeManager themeManager;
-    private final PasswordField targetPasswordField;
+// MODIFIED: Changed from 'extends Dialog<String>' to 'extends Stage'
+public class PasswordGeneratorDialog extends Stage {
     private final TextField resultField;
     private final Button generatePasswordButton;
     private final TextField lengthField;
 
+    // Added for window dragging
+    private double xOffset = 0;
+    private double yOffset = 0;
+
     public PasswordGeneratorDialog(ThemeManager themeManager, PasswordField targetPasswordField) {
-        super();
-        this.themeManager = themeManager;
-        this.targetPasswordField = targetPasswordField;
 
         initStyle(StageStyle.TRANSPARENT);
-        getDialogPane().getScene().setFill(Color.TRANSPARENT);
-        getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 15;");
-        getDialogPane().setEffect(themeManager.getLightOuterShadow());
-        getDialogPane().setPrefWidth(400);
+        
+        // MODIFIED: Create a root layout pane
+        VBox rootLayout = new VBox(15);
+        rootLayout.setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 15;");
+        rootLayout.setEffect(themeManager.getLightOuterShadow());
+        rootLayout.setPadding(new Insets(10));
+        setMinWidth(400); // Set width on the Stage
 
+        // MODIFIED: Add dragging logic to the root pane
+        rootLayout.setOnMousePressed(event -> {
+            xOffset = event.getSceneX();
+            yOffset = event.getSceneY();
+        });
+        rootLayout.setOnMouseDragged(event -> {
+            setX(event.getScreenX() - xOffset);
+            setY(event.getScreenY() - yOffset);
+        });
+        
         setTitle("Password Generator");
 
         resultField = themeManager.createStyledTextField("Generated Password");
@@ -205,31 +221,45 @@ public class PasswordGeneratorDialog extends Dialog<String> {
         tabPane.getTabs().addAll(passwordTab, passphraseTab);
         themeManager.styleTabPane(tabPane);
         
-        // --- Main Layout ---
+        // --- Main Layout (inside the root) ---
         VBox layout = new VBox(15, tabPane, resultBox);
-        layout.setPadding(new Insets(10));
-        getDialogPane().setContent(layout);
-
-        ButtonType useButtonType = new ButtonType("Use This", ButtonBar.ButtonData.OK_DONE);
-        getDialogPane().getButtonTypes().addAll(useButtonType, ButtonType.CANCEL);
+        // MODIFIED: Removed padding, as it's on rootLayout now
         
-        Button useButton = (Button) getDialogPane().lookupButton(useButtonType);
-        themeManager.styleIconButton(useButton, null);
-        useButton.setText("Use This");
+        // MODIFIED: Create buttons manually
+        Button useButton = themeManager.createStyledButton("Use This");
+        themeManager.styleIconButton(useButton, null); // Apply base style
+        useButton.setText("Use This"); // Set text
         useButton.setStyle(useButton.getStyle() + " -fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
         useButton.setPrefWidth(100);
         
-        Button cancelButton = (Button) getDialogPane().lookupButton(ButtonType.CANCEL);
-        themeManager.styleIconButton(cancelButton, null);
-        cancelButton.setText("Cancel");
+        Button cancelButton = themeManager.createStyledButton("Cancel");
+        themeManager.styleIconButton(cancelButton, null); // Apply base style
+        cancelButton.setText("Cancel"); // Set text
         cancelButton.setPrefWidth(100);
 
-        setResultConverter(dialogButton -> {
-            if (dialogButton == useButtonType) {
-                return resultField.getText();
+        HBox buttonBar = new HBox(10, useButton, cancelButton);
+        buttonBar.setAlignment(Pos.CENTER_RIGHT);
+
+        // MODIFIED: Set actions for new buttons
+        cancelButton.setOnAction(e -> close());
+
+        useButton.setOnAction(e -> {
+            String password = resultField.getText();
+            if (password != null && !password.isEmpty()) {
+                targetPasswordField.setText(password);
             }
-            return null;
+            close();
         });
+
+        // MODIFIED: Removed setResultConverter
+
+        // MODIFIED: Add main layout and button bar to the root layout
+        rootLayout.getChildren().addAll(layout, buttonBar);
+
+        // MODIFIED: Create and set the scene
+        Scene scene = new Scene(rootLayout);
+        scene.setFill(Color.TRANSPARENT);
+        setScene(scene);
         
         // Generate a password on open
         Platform.runLater(() -> {
@@ -242,12 +272,9 @@ public class PasswordGeneratorDialog extends Dialog<String> {
      * Shows the dialog and updates the target PasswordField if a password is
      * generated and accepted.
      */
+    // MODIFIED: Changed logic to simply show the Stage
     public void showDialog() {
-        Optional<String> result = showAndWait();
-        result.ifPresent(password -> {
-            if (password != null && !password.isEmpty()) {
-                targetPasswordField.setText(password);
-            }
-        });
+        show();
+        // Removed Optional<String> result logic
     }
 }
