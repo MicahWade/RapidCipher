@@ -93,7 +93,7 @@ public class SqliteDriver implements IDatabaseDriver {
     }
 
     @Override
-    public long createLogin(String name, String username, String password, String url, String notes) {
+    public String createLogin(String name, String username, String password, String url, String notes) {
         String sql = "INSERT INTO logins (name, username, password, url, notes) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
@@ -108,42 +108,30 @@ public class SqliteDriver implements IDatabaseDriver {
             if (affectedRows > 0) {
                 try (ResultSet rs = pstmt.getGeneratedKeys()) {
                     if (rs.next()) {
-                        return rs.getLong(1);
+                        return String.valueOf(rs.getLong(1)); // REFACTORED
                     }
                 }
             }
-            return -1;
+            return null;
         } catch (SQLException e) {
             System.err.println("Create login failed: " + e.getMessage());
-            return -1;
+            return null;
         } catch (Exception e) {
             System.err.println("Encryption failed during create: " + e.getMessage());
-            return -1;
+            return null;
         }
     }
 
     @Override
-    public boolean deleteLogin(long id) {
+    public boolean deleteLogin(String id) { // REFACTORED
         String sql = "DELETE FROM logins WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setLong(1, id);
+            pstmt.setLong(1, Long.parseLong(id)); // REFACTORED
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0;
-        } catch (SQLException e) {
+        } catch (SQLException | NumberFormatException e) {
             System.err.println("Delete login failed: " + e.getMessage());
             return false;
-        }
-    }
-
-    @Override
-    public ResultSet searchLogins() {
-        String sql = "SELECT id, name, username, password, url, notes FROM logins";
-        try {
-            PreparedStatement pstmt = connection.prepareStatement(sql);
-            return pstmt.executeQuery();
-        } catch (SQLException e) {
-            System.err.println("Search login failed: " + e.getMessage());
-            return null;
         }
     }
 
@@ -156,7 +144,7 @@ public class SqliteDriver implements IDatabaseDriver {
              ResultSet rs = pstmt.executeQuery()) {
             
             while (rs != null && rs.next()) {
-                long id = rs.getLong("id");
+                String id = String.valueOf(rs.getLong("id")); // REFACTORED
                 String plainTextName = "!!DECRYPT_ERROR!!";
                 String plainTextUser = "!!DECRYPT_ERROR!!";
                 String plainTextPass = "!!DECRYPT_ERROR!!";

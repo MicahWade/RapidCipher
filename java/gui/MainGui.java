@@ -281,44 +281,14 @@ public class MainGui extends Application {
         }
 
         loginData.clear();
-        ResultSet rs = null;
         try {
-            rs = database.searchLogins();
-            while (rs != null && rs.next()) {
-
-                long id = rs.getLong("id");
-                String plainTextName = "!!DECRYPT_ERROR!!";
-                String plainTextUser = "!!DECRYPT_ERROR!!";
-                String plainTextPass = "!!DECRYPT_ERROR!!";
-                String plainTextUrl = "!!DECRYPT_ERROR!!";
-                String plainTextNotes = "!!DECRYPT_ERROR!!";
-
-                try {
-                    plainTextName = Encryption.decryptWithIV(rs.getString("name"), MasterPassword.getKey());
-                    plainTextUser = Encryption.decryptWithIV(rs.getString("username"), MasterPassword.getKey());
-                    plainTextPass = Encryption.decryptWithIV(rs.getString("password"), MasterPassword.getKey());
-                    plainTextUrl = Encryption.decryptWithIV(rs.getString("url"), MasterPassword.getKey());
-                    plainTextNotes = Encryption.decryptWithIV(rs.getString("notes"), MasterPassword.getKey());
-
-                } catch (Exception e) {
-                    System.err.println("Failed to decrypt login ID " + id + ": " + e.getMessage());
-                }
-
-                loginData.add(new LoginEntry(
-                        id,
-                        plainTextName,
-                        plainTextUser,
-                        plainTextPass,
-                        plainTextUrl,
-                        plainTextNotes));
-            }
-        } catch (SQLException e) {
+            // REFACTORED: Use getAllLoginEntries which returns a List and works for all drivers
+            List<LoginEntry> entries = database.getAllLoginEntries(MasterPassword.getKey());
+            loginData.setAll(entries);
+            
+        } catch (Exception e) {
             e.printStackTrace();
             themeManager.showErrorAlert("Database Load Failed", "Could not load data from database: " + e.getMessage());
-        } finally {
-            if (rs != null) {
-                try { rs.getStatement().close(); rs.close(); } catch (SQLException e) { /* ignore */ }
-            }
         }
     }
 
@@ -340,9 +310,10 @@ public class MainGui extends Application {
             return;
         }
 
-        long newId = database.createLogin(name, username, password, url, notes);
+        // REFACTORED: newId is now a String
+        String newId = database.createLogin(name, username, password, url, notes);
 
-        if (newId != -1) {
+        if (newId != null && !newId.isEmpty()) {
             statusLabel.setText("Login added successfully.");
             statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
 
@@ -367,6 +338,7 @@ public class MainGui extends Application {
             return;
         }
         
+        // REFACTORED: login.getId() is now a String
         boolean success = database.deleteLogin(login.getId());
         if (success) {
             statusLabel.setText("Login deleted successfully.");
@@ -431,67 +403,4 @@ public class MainGui extends Application {
         this.dbConfig = ConfigManager.loadConfig();
         restartLabel.setVisible(true);
         statusLabel.setText("Settings saved. Please restart.");
-        statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
-    }
-
-    private void logout() {
-        MasterPassword.setKey(null);
-        loginData.clear();
-        loginListView.refresh();
-        showAddForm();
-        
-        primaryStage.hide();
-
-        if (database != null) {
-            database.closeConnection();
-        }
-        database = null;
-
-        AuthManager authManager = new AuthManager(themeManager);
-        
-        boolean proceed = false;
-        try {
-            proceed = authManager.showMasterPasswordPrompt();
-        } catch (Exception e) {
-            e.printStackTrace();
-            themeManager.showErrorAlert("Fatal Error", "Failed to initialize encryption settings.\n" + e.getMessage());
-        }
-
-        if (proceed) {
-            try {
-                this.dbConfig = ConfigManager.loadConfig();
-                database = new Database(dbConfig); 
-            } catch (Exception e) {
-                e.printStackTrace();
-                themeManager.showErrorAlert("Database Connection Failed", "Could not reconnect to database: " + e.getMessage());
-            }
-
-            loadDataFromDatabase();
-            primaryStage.show();
-            
-        } else {
-            Platform.exit();
-            System.exit(0);
-        }
-    }
-
-    public Label getStatusLabel() {
-        return statusLabel;
-    }
-
-    public ConfigManager.DbConfig getDbConfig() {
-        return dbConfig;
-    }
-    
-    public Database getDatabase() {
-        return database;
-    }
-    
-    public ObservableList<LoginEntry> getLoginData() {
-        return loginData;
-    }
-    
-    public ListView<LoginEntry> getLoginListView() {
-        return loginListView;
-    }
-}
+        statusLabel.setStyle("-fx-text-fill

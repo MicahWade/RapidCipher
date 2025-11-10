@@ -1,14 +1,14 @@
 package gui;
 
 public class LoginEntry {
-    private final long id;
+    private final String id;
     private final String name;
     private final String username;
     private final String password;
     private final String url;
     private final String notes;
 
-    public LoginEntry(long id, String name, String username, String password, String url, String notes) {
+    public LoginEntry(String id, String name, String username, String password, String url, String notes) {
         this.id = id;
         this.name = name;
         this.username = username;
@@ -17,7 +17,7 @@ public class LoginEntry {
         this.notes = notes;
     }
 
-    public long getId() { return id; }
+    public String getId() { return id; }
     public String getName() { return name; }
     public String getUsername() { return username; }
     public String getPassword() { return password; }

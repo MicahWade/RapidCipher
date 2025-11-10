@@ -6,9 +6,13 @@ import core.MasterPassword;
 import gui.LoginEntry;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 import javax.crypto.SecretKey;
 
@@ -42,62 +46,142 @@ public class PostgresDriver implements IDatabaseDriver {
         connection = DriverManager.getConnection(dbUrl, user, pass);
         System.out.println("Connected to PostgreSQL.");
         
-        // In a real implementation, you would call checkAndCreateloginsTable() here
-        // For this stub, we'll just show a message.
-        System.out.println("PostgreSQL driver is a stub. Table creation logic not implemented.");
+        checkAndCreateloginsTable();
     }
     
-    private void checkStub() throws SQLException {
-        if (connection == null) {
-            throw new SQLException("Not connected to database.");
-        }
-        throw new UnsupportedOperationException("This database driver is a stub and does not implement this functionality.");
-    }
-
     @Override
     public void checkAndCreateloginsTable() throws SQLException {
-        checkStub();
+        if (!doesTableExist("logins") || !isPasswordTableSchemaCorrect()) {
+            createloginsTable();
+        }
+    }
+
+    private boolean doesTableExist(String tableName) throws SQLException {
+        DatabaseMetaData meta = connection.getMetaData();
+        try (ResultSet rs = meta.getTables(null, null, tableName.toLowerCase(), new String[] { "TABLE" })) {
+            return rs.next();
+        }
+    }
+
+    private boolean isPasswordTableSchemaCorrect() throws SQLException {
+        String[] requiredColumns = { "id", "name", "username", "password", "url", "notes" };
+        DatabaseMetaData meta = connection.getMetaData();
+        try (ResultSet columns = meta.getColumns(null, null, "logins", null)) {
+            int foundColumns = 0;
+            while (columns.next()) {
+                String columnName = columns.getString("COLUMN_NAME");
+                for (String required : requiredColumns) {
+                    if (required.equalsIgnoreCase(columnName)) {
+                        foundColumns++;
+                        break;
+                    }
+                }
+            }
+            return foundColumns == requiredColumns.length;
+        }
+    }
+
+    private void createloginsTable() throws SQLException {
+        // Use BIGSERIAL for auto-incrementing 64-bit integer
+        String createTableSQL = "CREATE TABLE IF NOT EXISTS logins (" +
+            "id BIGSERIAL PRIMARY KEY, " +
+            "name TEXT NOT NULL, " +
+            "username TEXT NOT NULL, " +
+            "password TEXT NOT NULL, " +
+            "url TEXT, " +
+            "notes TEXT);";
+        
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute(createTableSQL);
+            System.out.println("PostgreSQL logins table created or verified.");
+        }
     }
 
     @Override
-    public long createLogin(String name, String username, String password, String url, String notes) {
-        try {
-            checkStub();
+    public String createLogin(String name, String username, String password, String url, String notes) {
+        String sql = "INSERT INTO logins (name, username, password, url, notes) VALUES (?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            
+            pstmt.setString(1, Encryption.encryptWithIV(name, MasterPassword.getKey()));
+            pstmt.setString(2, Encryption.encryptWithIV(username, MasterPassword.getKey()));
+            pstmt.setString(3, Encryption.encryptWithIV(password, MasterPassword.getKey()));
+            pstmt.setString(4, Encryption.encryptWithIV(url, MasterPassword.getKey()));
+            pstmt.setString(5, Encryption.encryptWithIV(notes, MasterPassword.getKey()));
+            
+            int affectedRows = pstmt.executeUpdate();
+
+            if (affectedRows > 0) {
+                try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        return String.valueOf(rs.getLong(1)); // REFACTORED
+                    }
+                }
+            }
+            return null;
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.err.println("Create login failed: " + e.getMessage());
+            return null;
+        } catch (Exception e) {
+            System.err.println("Encryption failed during create: " + e.getMessage());
+            return null;
         }
-        return -1;
     }
 
     @Override
-    public boolean deleteLogin(long id) {
-        try {
-            checkStub();
-        } catch (SQLException e) {
-            e.printStackTrace();
+    public boolean deleteLogin(String id) { // REFACTORED
+        String sql = "DELETE FROM logins WHERE id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setLong(1, Long.parseLong(id)); // REFACTORED
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException | NumberFormatException e) {
+            System.err.println("Delete login failed: " + e.getMessage());
+            return false;
         }
-        return false;
-    }
-
-    @Override
-    public ResultSet searchLogins() {
-        try {
-            checkStub();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 
     @Override
     public List<LoginEntry> getAllLoginEntries(SecretKey masterKey) throws SQLException {
-        checkStub();
-        return null;
+        List<LoginEntry> entries = new ArrayList<>();
+        String sql = "SELECT id, name, username, password, url, notes FROM logins";
+        
+        try (PreparedStatement pstmt = connection.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            
+            while (rs != null && rs.next()) {
+                String id = String.valueOf(rs.getLong("id")); // REFACTORED
+                String plainTextName = "!!DECRYPT_ERROR!!";
+                String plainTextUser = "!!DECRYPT_ERROR!!";
+                String plainTextPass = "!!DECRYPT_ERROR!!";
+                String plainTextUrl = "!!DECRYPT_ERROR!!";
+                String plainTextNotes = "!!DECRYPT_ERROR!!";
+                
+                try {
+                    plainTextName = Encryption.decryptWithIV(rs.getString("name"), masterKey);
+                    plainTextUser = Encryption.decryptWithIV(rs.getString("username"), masterKey);
+                    plainTextPass = Encryption.decryptWithIV(rs.getString("password"), masterKey);
+                    plainTextUrl = Encryption.decryptWithIV(rs.getString("url"), masterKey);
+                    plainTextNotes = Encryption.decryptWithIV(rs.getString("notes"), masterKey);
+                    
+                } catch (Exception e) {
+                    System.err.println("Failed to decrypt entry with id " + id + " during migration: " + e.getMessage());
+                }
+                
+                entries.add(new LoginEntry(id, plainTextName, plainTextUser, plainTextPass, plainTextUrl, plainTextNotes));
+            }
+        }
+        return entries;
     }
 
     @Override
     public void deleteAllLogins() throws SQLException {
-        checkStub();
+        // Truncate and reset the auto-incrementing serial counter
+        String sqlReset = "TRUNCATE TABLE logins RESTART IDENTITY;";
+        
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute(sqlReset);
+            System.out.println("Destination table wiped.");
+        }
     }
 
     @Override

@@ -11,7 +11,7 @@ public class Database {
     
     private IDatabaseDriver driver;
 
-    public Database(ConfigManager.DbConfig config) throws SQLException {
+    public Database(ConfigManager.DbConfig config) throws Exception { // REFACTORED
         
         // This constructor now acts as a factory
         switch (config.dbType().toUpperCase()) {
@@ -40,29 +40,23 @@ public class Database {
             driver.connect(config);
         } catch (Exception e) {
             e.printStackTrace();
-            throw new SQLException("Failed to initialize database driver: " + e.getMessage(), e);
+            throw new Exception("Failed to initialize database driver: " + e.getMessage(), e); // REFACTORED
         }
     }
     
-    // --- All methods below are now delegated to the driver ---
-
-    public long createLogin(String name, String username, String password, String url, String notes) {
+    public String createLogin(String name, String username, String password, String url, String notes) {
         return driver.createLogin(name, username, password, url, notes);
     }
 
-    public boolean deleteLogin(long id) {
+    public boolean deleteLogin(String id) {
         return driver.deleteLogin(id);
     }
 
-    public ResultSet searchLogins() {
-        return driver.searchLogins();
-    }
-
-    public List<LoginEntry> getAllLoginEntries(SecretKey masterKey) throws SQLException {
+    public List<LoginEntry> getAllLoginEntries(SecretKey masterKey) throws Exception {
         return driver.getAllLoginEntries(masterKey);
     }
 
-    public void deleteAllLogins() throws SQLException {
+    public void deleteAllLogins() throws Exception {
         driver.deleteAllLogins();
     }
 
