@@ -48,7 +48,8 @@ public class AuthManager {
         Dialog<String> dialog = new Dialog<>();
         dialog.initStyle(StageStyle.TRANSPARENT);
         dialog.getDialogPane().getScene().setFill(Color.TRANSPARENT);
-        dialog.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 15;");
+        // MODIFIED: Removed -fx-background-radius: 15;
+        dialog.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + ";");
         dialog.getDialogPane().setEffect(themeManager.getLightOuterShadow());
 
         dialog.setTitle("Login");
@@ -126,7 +127,8 @@ public class AuthManager {
         Dialog<String> dialog = new Dialog<>();
         dialog.initStyle(StageStyle.TRANSPARENT);
         dialog.getDialogPane().getScene().setFill(Color.TRANSPARENT);
-        dialog.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 15;");
+        // MODIFIED: Removed -fx-background-radius: 15;
+        dialog.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + ";");
         dialog.getDialogPane().setEffect(themeManager.getLightOuterShadow());
         
         dialog.setTitle("Welcome to RapidCipher");
@@ -220,7 +222,8 @@ public class AuthManager {
     private void showErrorAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.initStyle(StageStyle.TRANSPARENT);
-        alert.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + "; -fx-background-radius: 15;");
+        // MODIFIED: Removed -fx-background-radius: 15;
+        alert.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
         alert.getDialogPane().setEffect(themeManager.getLightOuterShadow());
         
         alert.setTitle(title);

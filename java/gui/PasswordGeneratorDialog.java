@@ -18,14 +18,14 @@ import javafx.scene.control.Dialog; // Keep Dialog for original reference if nee
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.Spinner;
-import javafx.scene.control.Tab;
-import javafx.scene.control.TabPane;
+// REMOVED: Tab and TabPane imports
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane; // ADDED
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.StageStyle;
@@ -161,7 +161,7 @@ public class PasswordGeneratorDialog extends Stage {
             minBox,
             generatePasswordButton
         );
-        passwordTabContent.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
+        // REMOVED: passwordTabContent.setStyle(...)
 
         // --- Passphrase Tab ---
         VBox passphraseTabContent = new VBox(15);
@@ -210,19 +210,45 @@ public class PasswordGeneratorDialog extends Stage {
             separatorBox,
             generatePassphraseButton
         );
-        passphraseTabContent.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
+        // REMOVED: passphraseTabContent.setStyle(...)
         
-        // --- Tab Pane ---
-        TabPane tabPane = new TabPane();
-        Tab passwordTab = new Tab("Password", passwordTabContent);
-        Tab passphraseTab = new Tab("Passphrase", passphraseTabContent);
-        passwordTab.setClosable(false);
-        passphraseTab.setClosable(false);
-        tabPane.getTabs().addAll(passwordTab, passphraseTab);
-        themeManager.styleTabPane(tabPane);
+        // --- Tab Pane (REMOVED) ---
+        
+        // --- START NEW ---
+        // --- Mode Toggle Buttons ---
+        Button passwordModeButton = themeManager.createStyledButton("Password");
+        Button passphraseModeButton = themeManager.createStyledButton("Passphrase");
+        
+        HBox modeToggleBar = new HBox(5, passwordModeButton, passphraseModeButton);
+        modeToggleBar.setAlignment(Pos.CENTER_LEFT);
+        
+        // --- Content Stack ---
+        StackPane contentStack = new StackPane(passwordTabContent, passphraseTabContent);
+        contentStack.setPadding(new Insets(10, 0, 0, 0)); // Add some space above content
+        
+        // --- Toggle Logic ---
+        passwordModeButton.setOnAction(e -> {
+            passwordTabContent.setVisible(true);
+            passphraseTabContent.setVisible(false);
+            passwordModeButton.setEffect(themeManager.getLightInnerShadow());
+            passphraseModeButton.setEffect(themeManager.getLightOuterShadow());
+        });
+        
+        passphraseModeButton.setOnAction(e -> {
+            passwordTabContent.setVisible(false);
+            passphraseTabContent.setVisible(true);
+            passwordModeButton.setEffect(themeManager.getLightOuterShadow());
+            passphraseModeButton.setEffect(themeManager.getLightInnerShadow());
+        });
+        
+        // Set initial state
+        passwordModeButton.setEffect(themeManager.getLightInnerShadow());
+        passphraseTabContent.setVisible(false);
+        // --- END NEW ---
         
         // --- Main Layout (inside the root) ---
-        VBox layout = new VBox(15, tabPane, resultBox);
+        // MODIFIED: Replaced tabPane with modeToggleBar and contentStack
+        VBox layout = new VBox(15, modeToggleBar, contentStack, resultBox);
         // MODIFIED: Removed padding, as it's on rootLayout now
         
         // MODIFIED: Create buttons manually
