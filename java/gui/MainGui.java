@@ -16,6 +16,8 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
+import javafx.stage.Modality;
+import javafx.concurrent.Task;
 
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.materialdesign.MaterialDesign;
@@ -25,6 +27,11 @@ import core.MasterPassword;
 import core.ConfigManager;
 
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Callable;
 
 public class MainGui extends Application {
     private static MainGui instance;
@@ -139,66 +146,109 @@ public class MainGui extends Application {
             Platform.exit();
             return;
         }
+        
+        // --- 1. Create and show loading screen ---
+        Stage loadingStage = new Stage(StageStyle.TRANSPARENT);
+        VBox loadingLayout = new VBox(20);
+        loadingLayout.setAlignment(Pos.CENTER);
+        loadingLayout.setPadding(new Insets(20));
+        loadingLayout.setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 15;");
+        loadingLayout.setEffect(themeManager.getLightOuterShadow());
 
-        // --- MODIFIED DATABASE CONNECTION LOGIC ---
-        try {
-            database = new Database(dbConfig);
-        } catch (Exception e) {
-            e.printStackTrace();
-            
-            // Check if the failed config was a remote database
-            if (!"SQLITE".equalsIgnoreCase(dbConfig.dbType())) {
+        Label loadingLabel = new Label("Connecting to database...");
+        loadingLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + "; -fx-font-size: 16px;");
+
+        ProgressIndicator progressIndicator = new ProgressIndicator();
+        progressIndicator.setStyle("-fx-progress-color: " + themeManager.getCurrentErrorColor() + ";");
+
+        loadingLayout.getChildren().addAll(loadingLabel, progressIndicator);
+
+        Scene loadingScene = new Scene(loadingLayout, 300, 200);
+        loadingScene.setFill(Color.TRANSPARENT);
+        loadingStage.setScene(loadingScene);
+        loadingStage.initModality(Modality.APPLICATION_MODAL);
+        loadingStage.show();
+
+        // --- 2. Run connection logic on a background thread ---
+        Task<Database> connectTask = new Task<>() {
+            @Override
+            protected Database call() throws Exception {
+                // This runs on the background thread
+                Callable<Database> dbCallable = () -> new Database(dbConfig);
+                ExecutorService executor = Executors.newSingleThreadExecutor();
+                Future<Database> future = executor.submit(dbCallable);
                 
-                // 1. Inform the user of the fallback
+                try {
+                    // Wait for 15 seconds
+                    Database db = future.get(15, TimeUnit.SECONDS);
+                    return db;
+                } catch (Exception e) {
+                    future.cancel(true); // Stop the task if it's still running
+                    throw e; // Re-throw the exception to be caught by task.setOnFailed
+                } finally {
+                    executor.shutdown();
+                }
+            }
+        };
+
+        connectTask.setOnSucceeded(e -> {
+            // Connection successful
+            database = connectTask.getValue();
+            loadingStage.close();
+            buildAndShowMainUI(primaryStage); // Build UI now that we have a DB
+        });
+
+        connectTask.setOnFailed(e -> {
+            // Connection failed (timeout or other error)
+            loadingStage.close();
+            Throwable error = connectTask.getException();
+            error.printStackTrace();
+
+            // --- Fallback Logic ---
+            if (!"SQLITE".equalsIgnoreCase(dbConfig.dbType())) {
                 themeManager.showErrorAlert("Remote Database Failed",
-                        "Could not connect to " + dbConfig.dbType() + ": " + e.getMessage() + "\n\n" +
+                        "Could not connect to " + dbConfig.dbType() + ": " + error.getMessage() + "\n\n" +
                         "Reverting to the default local SQLite database.");
                 
                 try {
-                    // 2. Create a default SQLite config
-                    // We mimic the defaults from ConfigManager.loadConfig()
-                    ConfigManager.DbConfig sqliteConfig = new ConfigManager.DbConfig(
-                        "SQLITE", 
-                        "",          // host
-                        "3306",      // port (ignored)
-                        "rapidcipher", // dbName (ignored)
-                        "",          // user
-                        ""           // pass
-                    );
-                    
-                    // 3. Try to connect to SQLite
-                    database = new Database(sqliteConfig);
-                    
-                    // 4. Update the app's active config to reflect the fallback
+                    ConfigManager.DbConfig sqliteConfig = new ConfigManager.DbConfig("SQLITE", "", "3306", "rapidcipher", "", "");
+                    database = new Database(sqliteConfig); // This connection should be fast
                     this.dbConfig = sqliteConfig;
+                    
+                    // Fallback succeeded, show main UI
+                    buildAndShowMainUI(primaryStage); 
 
                 } catch (Exception sqliteEx) {
-                    // 5. If SQLite ALSO fails, it's a fatal error.
+                    // Fallback failed
                     sqliteEx.printStackTrace();
                     themeManager.showErrorAlert("Fatal Error",
                             "Failed to connect to remote database AND failed to fall back to SQLite.\n" +
                             "Error: " + sqliteEx.getMessage() + "\n" +
                             "The application will now exit.");
                     Platform.exit();
-                    return; // Stop the start method
                 }
-                
             } else {
-                // The failure was with SQLite itself. This is also fatal.
+                // SQLite itself failed
                 themeManager.showErrorAlert("Database Connection Failed",
-                        "Could not connect to the default SQLite database: " + e.getMessage() + "\n" +
+                        "Could not connect to the default SQLite database: " + error.getMessage() + "\n" +
                         "Please check file permissions in your Documents/RapidCipher folder.\n" +
                         "The application will now exit.");
                 Platform.exit();
-                return; // Stop the start method
             }
-        }
-        // --- END MODIFIED LOGIC ---
+        });
 
+        new Thread(connectTask).start();
+    }
+    
+    /**
+     * This method contains all the logic to build the main UI,
+     * to be called *after* a database connection is successfully established.
+     */
+    private void buildAndShowMainUI(Stage primaryStage) {
         primaryStage.setTitle("Rapid Cipher");
         primaryStage.initStyle(StageStyle.TRANSPARENT);
 
-        loadDataFromDatabase(); // Try to load, will now use SQLite if remote failed
+        loadDataFromDatabase(); 
 
         loginListView = new ListView<>();
         loginListView.setItems(loginData);
@@ -310,7 +360,6 @@ public class MainGui extends Application {
         updateAllStyles();
 
         primaryStage.show();
-        
     }
 
     private void showAddForm() {
@@ -445,10 +494,10 @@ public class MainGui extends Application {
                 System.out.println("Writing " + entries.size() + " entries to destination...");
                 for (LoginEntry entry : entries) {
                     destDb.createLogin(
-                        entry.getName(),
-                        entry.getUsername(),
-                        entry.getPassword(),
-                        entry.getUrl(),
+                        entry.getName(), 
+                        entry.getUsername(), 
+                        entry.getPassword(), 
+                        entry.getUrl(), 
                         entry.getNotes()
                     );
                 }
