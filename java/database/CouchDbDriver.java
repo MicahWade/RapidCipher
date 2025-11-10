@@ -20,16 +20,12 @@ public class CouchDbDriver implements IDatabaseDriver {
     private CouchDbClient client;
     private String dbName;
 
-    /**
-     * Inner class representing the JSON document structure in CouchDB.
-     */
     private static class LoginDocument {
         @SerializedName("_id")
         private String id;
         @SerializedName("_rev")
         private String rev;
 
-        // We add a "type" field for good practice, to distinguish doc types
         private String type = "login"; 
         
         private String name;
@@ -38,7 +34,6 @@ public class CouchDbDriver implements IDatabaseDriver {
         private String url;
         private String notes;
 
-        // Getters and setters are needed for LightCouch
         public String getId() { return id; }
         public String getRev() { return rev; }
         public String getType() { return type; }
@@ -69,7 +64,6 @@ public class CouchDbDriver implements IDatabaseDriver {
         }
 
         try {
-            // true = create DB if it doesn't exist
             client = new CouchDbClient(dbName, true, "http", host, Integer.parseInt(port), user, pass);
             System.out.println("Connected to CouchDB at " + host + ":" + port + "/" + dbName);
             checkAndCreateloginsTable();
@@ -81,8 +75,6 @@ public class CouchDbDriver implements IDatabaseDriver {
 
     @Override
     public void checkAndCreateloginsTable() throws Exception {
-        // No-op for CouchDB, it's schemaless.
-        // The database itself was created in connect().
         System.out.println("CouchDB connection verified. Schemaless, no table creation needed.");
     }
 
@@ -97,7 +89,7 @@ public class CouchDbDriver implements IDatabaseDriver {
             doc.setNotes(Encryption.encryptWithIV(notes, MasterPassword.getKey()));
 
             Response response = client.save(doc);
-            return response.getId(); // Return the CouchDB-generated _id
+            return response.getId();
 
         } catch (Exception e) {
             System.err.println("Failed to create CouchDB login: " + e.getMessage());
@@ -108,8 +100,6 @@ public class CouchDbDriver implements IDatabaseDriver {
     @Override
     public boolean deleteLogin(String id) {
         try {
-            // To delete, we need the document's _id and _rev.
-            // We can get them with a find() first.
             LoginDocument doc = client.find(LoginDocument.class, id);
             client.remove(doc.getId(), doc.getRev());
             return true;
@@ -126,16 +116,13 @@ public class CouchDbDriver implements IDatabaseDriver {
     public List<LoginEntry> getAllLoginEntries(SecretKey masterKey) throws Exception {
         List<LoginEntry> entries = new ArrayList<>();
         
-        // Use the built-in _all_docs view to get all documents
         List<LoginDocument> docs;
         try {
              docs = client.view("_all_docs").includeDocs(true).query(LoginDocument.class);
         } catch(NoDocumentException e) {
-            // This happens if the database is completely empty
             return entries;
         }
 
-        // Filter out any design documents or other junk
         for (LoginDocument doc : docs.stream().filter(d -> "login".equals(d.getType())).collect(Collectors.toList())) {
             String id = doc.getId();
             String plainTextName = "!!DECRYPT_ERROR!!";
@@ -161,7 +148,6 @@ public class CouchDbDriver implements IDatabaseDriver {
 
     @Override
     public void deleteAllLogins() throws Exception {
-        // Easiest way to wipe a CouchDB is to delete and re-create the database
         System.out.println("Wiping destination database by recreating it...");
         client.context().deleteDB(this.dbName, this.dbName);
         client.context().createDB(this.dbName);

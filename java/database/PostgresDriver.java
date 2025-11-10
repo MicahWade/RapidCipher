@@ -82,7 +82,6 @@ public class PostgresDriver implements IDatabaseDriver {
     }
 
     private void createloginsTable() throws SQLException {
-        // Use BIGSERIAL for auto-incrementing 64-bit integer
         String createTableSQL = "CREATE TABLE IF NOT EXISTS logins (" +
             "id BIGSERIAL PRIMARY KEY, " +
             "name TEXT NOT NULL, " +
@@ -113,7 +112,7 @@ public class PostgresDriver implements IDatabaseDriver {
             if (affectedRows > 0) {
                 try (ResultSet rs = pstmt.getGeneratedKeys()) {
                     if (rs.next()) {
-                        return String.valueOf(rs.getLong(1)); // REFACTORED
+                        return String.valueOf(rs.getLong(1)); 
                     }
                 }
             }
@@ -128,10 +127,10 @@ public class PostgresDriver implements IDatabaseDriver {
     }
 
     @Override
-    public boolean deleteLogin(String id) { // REFACTORED
+    public boolean deleteLogin(String id) {
         String sql = "DELETE FROM logins WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setLong(1, Long.parseLong(id)); // REFACTORED
+            pstmt.setLong(1, Long.parseLong(id));
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0;
         } catch (SQLException | NumberFormatException e) {
@@ -149,7 +148,7 @@ public class PostgresDriver implements IDatabaseDriver {
              ResultSet rs = pstmt.executeQuery()) {
             
             while (rs != null && rs.next()) {
-                String id = String.valueOf(rs.getLong("id")); // REFACTORED
+                String id = String.valueOf(rs.getLong("id"));
                 String plainTextName = "!!DECRYPT_ERROR!!";
                 String plainTextUser = "!!DECRYPT_ERROR!!";
                 String plainTextPass = "!!DECRYPT_ERROR!!";
@@ -175,7 +174,6 @@ public class PostgresDriver implements IDatabaseDriver {
 
     @Override
     public void deleteAllLogins() throws SQLException {
-        // Truncate and reset the auto-incrementing serial counter
         String sqlReset = "TRUNCATE TABLE logins RESTART IDENTITY;";
         
         try (Statement stmt = connection.createStatement()) {

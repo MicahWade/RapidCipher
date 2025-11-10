@@ -36,8 +36,6 @@ public class CassandraDriver implements IDatabaseDriver {
         }
 
         this.keyspace = dbName;
-        // NOTE: Cassandra requires a local datacenter name, which is not in the config.
-        // Defaulting to 'datacenter1'. This may need to be configurable.
         String localDatacenter = "datacenter1"; 
 
         try {
@@ -50,7 +48,6 @@ public class CassandraDriver implements IDatabaseDriver {
             System.out.println("Connected to Cassandra cluster. Checking keyspace...");
             checkAndCreateloginsTable();
             
-            // Switch session to use the keyspace
             session.execute("USE " + keyspace);
             System.out.println("Switched to keyspace: " + keyspace);
 
@@ -62,13 +59,11 @@ public class CassandraDriver implements IDatabaseDriver {
 
     @Override
     public void checkAndCreateloginsTable() throws Exception {
-        // 1. Create Keyspace (Database)
         String createKeyspaceCql = "CREATE KEYSPACE IF NOT EXISTS " + keyspace +
                 " WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };";
         session.execute(createKeyspaceCql);
         System.out.println("Cassandra keyspace created or verified.");
 
-        // 2. Create Table (Schema)
         String createTableCql = "CREATE TABLE IF NOT EXISTS " + keyspace + ".logins (" +
                 "id uuid PRIMARY KEY, " +
                 "name text, " +

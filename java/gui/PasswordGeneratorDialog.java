@@ -36,7 +36,6 @@ public class PasswordGeneratorDialog extends Stage {
     private final Button generatePasswordButton;
     private final TextField lengthField;
 
-    // Added for window dragging
     private double xOffset = 0;
     private double yOffset = 0;
 
@@ -44,14 +43,12 @@ public class PasswordGeneratorDialog extends Stage {
 
         initStyle(StageStyle.TRANSPARENT);
         
-        // MODIFIED: Create a root layout pane
         VBox rootLayout = new VBox(15);
         rootLayout.setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 15;");
         rootLayout.setEffect(themeManager.getLightOuterShadow());
         rootLayout.setPadding(new Insets(10));
-        setMinWidth(400); // Set width on the Stage
+        setMinWidth(400);
 
-        // MODIFIED: Add dragging logic to the root pane
         rootLayout.setOnMousePressed(event -> {
             xOffset = event.getSceneX();
             yOffset = event.getSceneY();
@@ -75,16 +72,14 @@ public class PasswordGeneratorDialog extends Stage {
         HBox resultBox = new HBox(10, resultField, copyButton);
         HBox.setHgrow(resultField, Priority.ALWAYS);
         
-        // --- Filter for numeric input ---
         UnaryOperator<TextFormatter.Change> integerFilter = change -> {
             String newText = change.getControlNewText();
-            if (newText.matches("\\d*")) { // Allow empty or all digits
+            if (newText.matches("\\d*")) {
                 return change;
             }
             return null;
         };
 
-        // --- Password Tab ---
         VBox passwordTabContent = new VBox(15);
         passwordTabContent.setPadding(new Insets(10));
         
@@ -157,9 +152,7 @@ public class PasswordGeneratorDialog extends Stage {
             minBox,
             generatePasswordButton
         );
-        // REMOVED: passwordTabContent.setStyle(...)
 
-        // --- Passphrase Tab ---
         VBox passphraseTabContent = new VBox(15);
         passphraseTabContent.setPadding(new Insets(10));
         
@@ -206,23 +199,16 @@ public class PasswordGeneratorDialog extends Stage {
             separatorBox,
             generatePassphraseButton
         );
-        // REMOVED: passphraseTabContent.setStyle(...)
-        
-        // --- Tab Pane (REMOVED) ---
-        
-        // --- START NEW ---
-        // --- Mode Toggle Buttons ---
+
         Button passwordModeButton = themeManager.createStyledButton("Password");
         Button passphraseModeButton = themeManager.createStyledButton("Passphrase");
         
         HBox modeToggleBar = new HBox(5, passwordModeButton, passphraseModeButton);
         modeToggleBar.setAlignment(Pos.CENTER_LEFT);
         
-        // --- Content Stack ---
         StackPane contentStack = new StackPane(passwordTabContent, passphraseTabContent);
-        contentStack.setPadding(new Insets(10, 0, 0, 0)); // Add some space above content
+        contentStack.setPadding(new Insets(10, 0, 0, 0));
         
-        // --- Toggle Logic ---
         passwordModeButton.setOnAction(e -> {
             passwordTabContent.setVisible(true);
             passphraseTabContent.setVisible(false);
@@ -237,17 +223,11 @@ public class PasswordGeneratorDialog extends Stage {
             passphraseModeButton.setEffect(themeManager.getLightInnerShadow());
         });
         
-        // Set initial state
         passwordModeButton.setEffect(themeManager.getLightInnerShadow());
         passphraseTabContent.setVisible(false);
-        // --- END NEW ---
-        
-        // --- Main Layout (inside the root) ---
-        // MODIFIED: Replaced tabPane with modeToggleBar and contentStack
+
         VBox layout = new VBox(15, modeToggleBar, contentStack, resultBox);
-        // MODIFIED: Removed padding, as it's on rootLayout now
         
-        // MODIFIED: Create buttons manually
         Button useButton = themeManager.createStyledButton("Use This");
         themeManager.styleIconButton(useButton, null); // Apply base style
         useButton.setText("Use This"); // Set text
@@ -255,14 +235,11 @@ public class PasswordGeneratorDialog extends Stage {
         useButton.setPrefWidth(100);
         
         Button cancelButton = themeManager.createStyledButton("Cancel");
-//        themeManager.styleIconButton(cancelButton, null); 
-//        cancelButton.setText("Cancel"); 
         cancelButton.setPrefWidth(100);
 
         HBox buttonBar = new HBox(10, useButton, cancelButton);
         buttonBar.setAlignment(Pos.CENTER_RIGHT);
 
-        // MODIFIED: Set actions for new buttons
         cancelButton.setOnAction(e -> close());
 
         useButton.setOnAction(e -> {
@@ -272,19 +249,12 @@ public class PasswordGeneratorDialog extends Stage {
             }
             close();
         });
-
-        // MODIFIED: Removed setResultConverter
-
-        // MODIFIED: Add main layout and button bar to the root layout
         rootLayout.getChildren().addAll(layout, buttonBar);
 
-        // MODIFIED: Create and set the scene
         Scene scene = new Scene(rootLayout);
         scene.setFill(Color.TRANSPARENT);
         setScene(scene);
-        
-        // Generate a password on open
-        Platform.runLater(() -> {
+                Platform.runLater(() -> {
             generatePasswordButton.fire();
             lengthField.requestFocus();
         });
@@ -294,9 +264,7 @@ public class PasswordGeneratorDialog extends Stage {
      * Shows the dialog and updates the target PasswordField if a password is
      * generated and accepted.
      */
-    // MODIFIED: Changed logic to simply show the Stage
     public void showDialog() {
         show();
-        // Removed Optional<String> result logic
     }
 }

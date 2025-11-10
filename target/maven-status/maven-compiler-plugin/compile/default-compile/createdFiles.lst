@@ -2,11 +2,13 @@ gui/GuiBuilder$5.class
 core/ConfigManager.class
 core/ConfigManager$DbConfig.class
 core/PasswordGenerator.class
+database/CouchDbDriver$LoginDocument.class
 gui/GuiBuilder$2.class
 core/Database.class
 core/MasterPassword.class
 gui/ThemeManager$1.class
 gui/PasswordGeneratorDialog.class
+gui/MainGui$1.class
 gui/MainGui.class
 database/CouchDbDriver.class
 RapidCipher.class

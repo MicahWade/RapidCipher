@@ -52,7 +52,6 @@ public class ThemeManager {
     private InnerShadow lightInnerShadow;
 
     private static final String DB_DIR_PATH = System.getProperty("user.home") + "/Documents/RapidCipher";
-    // [FIXED] Point to the single config.properties file
     private static final Path SETTINGS_FILE = Paths.get(DB_DIR_PATH, "config.properties");
 
     public ThemeManager() {
@@ -152,7 +151,6 @@ public class ThemeManager {
     }
 
     public void loadThemePreference() {
-        // [FIXED] Load from the existing config.properties file
         Properties props = new Properties();
         if (Files.exists(SETTINGS_FILE)) {
             try (InputStream in = Files.newInputStream(SETTINGS_FILE)) {
@@ -162,13 +160,11 @@ public class ThemeManager {
                 return; // Don't proceed
             }
         }
-        // [FIXED] Use a prefixed key to avoid collisions
         this.isDarkMode = Boolean.parseBoolean(props.getProperty("theme.isDarkMode", String.valueOf(this.isDarkMode)));
         updateThemeStyles();
     }
 
     public void saveThemePreference() {
-        // [FIXED] Load existing properties first to avoid overwriting DB settings
         Properties props = new Properties();
         if (Files.exists(SETTINGS_FILE)) {
             try (InputStream in = Files.newInputStream(SETTINGS_FILE)) {
@@ -178,12 +174,9 @@ public class ThemeManager {
             }
         }
         
-        // [FIXED] Use a prefixed key
         props.setProperty("theme.isDarkMode", String.valueOf(this.isDarkMode));
         
         try (OutputStream out = Files.newOutputStream(SETTINGS_FILE)) {
-            // [FIXED] Store with a null comment so we don't overwrite the comment
-            // set by ConfigManager.
             props.store(out, null);
         } catch (Exception e) {
             System.err.println("Failed to save theme preference: " + e.getMessage());
@@ -236,18 +229,15 @@ public class ThemeManager {
         lightInnerShadow.setOffsetY(-2);
         lightInnerShadow.setInput(darkInnerShadow);
 
-        // [FIX] We will build the style differently for TextArea
         String baseStyle;
 
         if (control instanceof TextArea) {
-            // For TextArea, we set the colors for the inner content area
             baseStyle = "-fx-background-color: " + currentControlInnerBase + ";" +
                       "-fx-background-radius: 10;" +
-                      "-fx-prompt-text-fill: " + currentMutedTextColor + "; " + // Style prompt text
+                      "-fx-prompt-text-fill: " + currentMutedTextColor + "; " +
                       "-fx-control-inner-background: " + currentControlInnerBase + "; " +
-                      "-fx-text-fill: " + currentTextColor + ";"; // Style content text
+                      "-fx-text-fill: " + currentTextColor + ";"; 
         } else {
-            // For TextField/PasswordField, the original logic is fine.
             baseStyle = "-fx-background-color: " + currentControlInnerBase + ";" +
                       "-fx-background-radius: 10;" +
                       "-fx-text-fill: " + currentTextColor + ";";
@@ -274,8 +264,6 @@ public class ThemeManager {
         checkBox.setStyle("-fx-text-fill: " + currentTextColor + "; -fx-font-size: 14;");
         checkBox.setPadding(new javafx.geometry.Insets(5));
 
-        // Simplified neumorphic style for the box
-        // Must run later to ensure .box is available in the scene graph
         Platform.runLater(() -> {
             Region box = (Region) checkBox.lookup(".box");
             if (box != null) {
@@ -306,7 +294,7 @@ public class ThemeManager {
     }
 
     public void styleSlider(Slider slider) {
-        slider.applyCss(); // Ensure nodes are available
+        slider.applyCss();
         
         Region track = (Region) slider.lookup(".track");
         if (track != null) {
@@ -324,12 +312,9 @@ public class ThemeManager {
     }
 
     public void styleTabPane(TabPane tabPane) {
-        // This styles the entire TabPane container, including the content area background
         tabPane.setStyle("-fx-background-color: " + currentBaseColor + ";");
 
-        // We must wait for the scene graph to be built to find the nodes
         Platform.runLater(() -> {
-            // Style the bar that contains the tab buttons
             Region headerArea = (Region) tabPane.lookup(".tab-header-area");
             if (headerArea != null) {
                 headerArea.setStyle(
@@ -338,20 +323,17 @@ public class ThemeManager {
                 );
             }
             
-            // Style the background of the header bar itself
             Region headerBg = (Region) tabPane.lookup(".tab-header-background");
             if (headerBg != null) {
                  headerBg.setStyle("-fx-background-color: " + currentBaseColor + ";");
             }
             
-            // Function to set tab styles
             Runnable updateTabs = () -> {
                 tabPane.lookupAll(".tab").forEach(node -> {
-                    // Style for unselected tabs
                     node.setStyle(
                         "-fx-background-color: " + currentControlInnerBase + "; " +
                         "-fx-background-radius: 5 5 0 0; " +
-                        "-fx-background-insets: 0 1 0 0; " + // Small gap between tabs
+                        "-fx-background-insets: 0 1 0 0; " +
                         "-fx-padding: 8 15 8 15;"
                     );
                     node.setEffect(lightInnerShadow);
@@ -362,11 +344,10 @@ public class ThemeManager {
                     }
                 });
 
-                // Style the *selected* tab button
                 Tab selectedTab = tabPane.getSelectionModel().getSelectedItem();
                 if (selectedTab != null && selectedTab.getStyleableNode() != null) {
                      selectedTab.getStyleableNode().setStyle(
-                        "-fx-background-color: " + currentBaseColor + "; " + // Match the content pane
+                        "-fx-background-color: " + currentBaseColor + "; " +
                         "-fx-background-radius: 5 5 0 0; " +
                         "-fx-padding: 8 15 8 15;"
                     );
@@ -379,14 +360,11 @@ public class ThemeManager {
                 }
             };
 
-            // Initial style update
             updateTabs.run();
 
-            // Add a listener to re-style on selection change
             tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> updateTabs.run());
         });
 
-        // Style the content area of each tab
         tabPane.getTabs().forEach(this::styleTabContent);
     }
     
@@ -480,12 +458,10 @@ public class ThemeManager {
         });
     }
     
-    // [FIXED] This method now handles a null iconCode to prevent the NullPointerException
-    // and correctly styles text-only buttons.
     public void styleIconButton(Button button, MaterialDesign iconCode) {
-        FontIcon icon = null; // Initialize as null
+        FontIcon icon = null;
         
-        if (iconCode != null) { // Only setup icon if one is provided
+        if (iconCode != null) { 
             if (button.getGraphic() instanceof FontIcon) {
                 icon = (FontIcon) button.getGraphic();
             } else {
@@ -493,7 +469,7 @@ public class ThemeManager {
                 button.setGraphic(icon);
             }
             
-            icon.setIconCode(iconCode); // This is now safe
+            icon.setIconCode(iconCode);
             icon.setIconSize(16);
             icon.setIconColor(Color.web(currentMutedTextColor));
         } else {
@@ -501,24 +477,20 @@ public class ThemeManager {
             button.setGraphic(null);
         }
 
-        // [RE-FIXED] Use a variable that can be modified, then assign to a final
-        // variable for use in the lambda.
         String style = "-fx-background-color: " + currentBaseColor + "; " +
                        "-fx-background-radius: 10; " +
                        "-fx-background-insets: 0;";
         
-        // If it's a text-only button (no icon), add some padding
         if (iconCode == null) {
             style += " -fx-padding: 5 15 5 15;";
         }
         
-        // This 'finalStyle' is "effectively final" for the lambdas.
         final String finalStyle = style; 
                        
         button.setStyle(finalStyle);
         button.setEffect(lightOuterShadow);
         
-        if (iconCode != null) { // Only set fixed size for icon buttons
+        if (iconCode != null) {
             button.setPrefSize(35, 35);
             button.setMinSize(35, 35);
         }
@@ -535,7 +507,7 @@ public class ThemeManager {
 
     public Button createGeneratorButton() {
         Button button = new Button();
-        styleIconButton(button, MaterialDesign.MDI_AUTORENEW); // Using 'autorenew' icon
+        styleIconButton(button, MaterialDesign.MDI_AUTORENEW); 
         return button;
     }
 

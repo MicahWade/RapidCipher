@@ -108,7 +108,7 @@ public class SqliteDriver implements IDatabaseDriver {
             if (affectedRows > 0) {
                 try (ResultSet rs = pstmt.getGeneratedKeys()) {
                     if (rs.next()) {
-                        return String.valueOf(rs.getLong(1)); // REFACTORED
+                        return String.valueOf(rs.getLong(1));
                     }
                 }
             }
@@ -123,10 +123,10 @@ public class SqliteDriver implements IDatabaseDriver {
     }
 
     @Override
-    public boolean deleteLogin(String id) { // REFACTORED
+    public boolean deleteLogin(String id) {
         String sql = "DELETE FROM logins WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setLong(1, Long.parseLong(id)); // REFACTORED
+            pstmt.setLong(1, Long.parseLong(id));
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0;
         } catch (SQLException | NumberFormatException e) {
@@ -144,7 +144,7 @@ public class SqliteDriver implements IDatabaseDriver {
              ResultSet rs = pstmt.executeQuery()) {
             
             while (rs != null && rs.next()) {
-                String id = String.valueOf(rs.getLong("id")); // REFACTORED
+                String id = String.valueOf(rs.getLong("id"));
                 String plainTextName = "!!DECRYPT_ERROR!!";
                 String plainTextUser = "!!DECRYPT_ERROR!!";
                 String plainTextPass = "!!DECRYPT_ERROR!!";

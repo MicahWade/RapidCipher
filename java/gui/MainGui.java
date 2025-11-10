@@ -109,16 +109,13 @@ public class MainGui extends Application {
         themeManager.styleWindowButton(minimizeButton, false);
         themeManager.styleWindowButton(closeButton, true);
 
-        // This logic re-builds the settings pane or details form to apply new theme styles
         if (settingsPane != null && detailsPane.getChildren().size() > 0 && detailsPane.getChildren().get(0) == settingsPane) {
             settingsPane = guiBuilder.buildSettingsPane();
             detailsPane.getChildren().setAll(settingsPane);
         } else if (loginListView.getSelectionModel().getSelectedItem() == null) {
-            // Rebuild Add Form
             addForm = guiBuilder.buildAddForm();
             detailsPane.getChildren().setAll(addForm);
         } else {
-            // Rebuild Details Form
             currentDetailsForm = guiBuilder.buildDetailsForm(loginListView.getSelectionModel().getSelectedItem());
             detailsPane.getChildren().setAll(currentDetailsForm);
         }
@@ -145,7 +142,6 @@ public class MainGui extends Application {
             return;
         }
         
-        // --- 1. Create and show loading screen ---
         Stage loadingStage = new Stage(StageStyle.TRANSPARENT);
         VBox loadingLayout = new VBox(20);
         loadingLayout.setAlignment(Pos.CENTER);
@@ -205,7 +201,7 @@ public class MainGui extends Application {
                 
                 try {
                     ConfigManager.DbConfig sqliteConfig = new ConfigManager.DbConfig("SQLITE", "", "3306", "rapidcipher", "", "");
-                    database = new Database(sqliteConfig); // This connection should be fast
+                    database = new Database(sqliteConfig);
                     this.dbConfig = sqliteConfig;
                     
                     buildAndShowMainUI(primaryStage); 
@@ -293,8 +289,8 @@ public class MainGui extends Application {
                 database.closeConnection();
             }
             primaryStage.close();
-            Platform.exit(); // Ensure application exits
-            System.exit(0); // Force exit just in case
+            Platform.exit();
+            System.exit(0);
         });
 
         Region spacer = new Region();

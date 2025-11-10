@@ -36,7 +36,7 @@ public class ConfigManager {
                 props.load(in);
                 dbType = props.getProperty("db.type", "SQLITE");
                 host = props.getProperty("db.host", "");
-                port = props.getProperty("db.port", "3306"); // Default port (will be ignored by SQLite)
+                port = props.getProperty("db.port", "3306");
                 dbName = props.getProperty("db.name", "rapidcipher");
                 user = props.getProperty("db.user", "");
                 pass = props.getProperty("db.pass", "");
@@ -56,7 +56,6 @@ public class ConfigManager {
 
         String warning = "RapidCipher Database Configuration\n";
         
-        // Encrypt credentials for ANY remote database
         if (!config.dbType().equals("SQLITE")) {
             try {
                 props.setProperty("db.host", Encryption.encryptWithIV(config.host(), MasterPassword.getKey()));
@@ -80,7 +79,6 @@ public class ConfigManager {
                 return;
             }
         } else {
-            // For SQLite, we don't need to store (or encrypt) remote details
             props.setProperty("db.host", "");
             props.setProperty("db.port", "");
             props.setProperty("db.name", "");

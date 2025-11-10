@@ -139,7 +139,6 @@ public class AuthManager {
         Dialog<String> dialog = new Dialog<>();
         dialog.initStyle(StageStyle.TRANSPARENT);
         dialog.getDialogPane().getScene().setFill(Color.TRANSPARENT);
-        // MODIFIED: Removed -fx-background-radius: 15;
         dialog.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + ";");
         dialog.getDialogPane().setEffect(themeManager.getLightOuterShadow());
         
@@ -246,7 +245,6 @@ public class AuthManager {
     private void showErrorAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.initStyle(StageStyle.TRANSPARENT);
-        // MODIFIED: Removed -fx-background-radius: 15;
         alert.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
         alert.getDialogPane().setEffect(themeManager.getLightOuterShadow());
         

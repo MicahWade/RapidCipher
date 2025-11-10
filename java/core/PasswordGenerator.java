@@ -43,8 +43,7 @@ public class PasswordGenerator {
         } catch (Exception e) {
             System.err.println("!!! FAILED TO LOAD WORDLIST from resources. Falling back to small, hard-coded list. !!!");
             System.err.println("Error: " + e.getMessage());
-            
-            // Fallback to the original small list if loading fails
+// Backup Word List
             WORD_LIST = List.of(
                 "acid", "acorn", "acre", "acts", "afar", "affix", "aged", "agent",
                 "agile", "aging", "agony", "ahead", "aide", "aids", "aim", "air",
@@ -89,7 +88,6 @@ public class PasswordGenerator {
             for(int i = 0; i < minUpper; i++) passChars.add(UPPER.charAt(random.nextInt(UPPER.length())));
         }
         
-        // Add required digits
         if (useDigits) {
             allChars += DIGITS;
             for (int i = 0; i < reqDigits; i++) {
@@ -129,7 +127,6 @@ public class PasswordGenerator {
 
         StringBuilder passphrase = new StringBuilder();
         for (int i = 0; i < numWords; i++) {
-            // Updated to use List.get() and List.size()
             passphrase.append(WORD_LIST.get(random.nextInt(WORD_LIST.size())));
             if (i < numWords - 1) {
                 passphrase.append(separator);

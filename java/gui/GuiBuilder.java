@@ -99,7 +99,7 @@ public class GuiBuilder {
         
         if (!currentDbConfig.dbType().equals("SQLITE")) {
             try {
-                MasterPassword.getKey(); // This will throw if not set
+                MasterPassword.getKey();
                 String host = Encryption.decryptWithIV(currentDbConfig.host(), MasterPassword.getKey());
                 String port = Encryption.decryptWithIV(currentDbConfig.port(), MasterPassword.getKey());
                 String dbName = Encryption.decryptWithIV(currentDbConfig.dbName(), MasterPassword.getKey());
@@ -129,7 +129,6 @@ public class GuiBuilder {
             remoteFields.setVisible(!newVal.equals("SQLITE"));
             migrateDataCheck.setVisible(!newVal.equals(currentDbConfig.dbType()));
             
-            // Set default ports for convenience
             switch(newVal) {
                 case "MYSQL":
                     portField.setText("3306");
