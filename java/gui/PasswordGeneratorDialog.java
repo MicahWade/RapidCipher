@@ -255,8 +255,8 @@ public class PasswordGeneratorDialog extends Stage {
         useButton.setPrefWidth(100);
         
         Button cancelButton = themeManager.createStyledButton("Cancel");
-        themeManager.styleIconButton(cancelButton, null); // Apply base style
-        cancelButton.setText("Cancel"); // Set text
+//        themeManager.styleIconButton(cancelButton, null); 
+//        cancelButton.setText("Cancel"); 
         cancelButton.setPrefWidth(100);
 
         HBox buttonBar = new HBox(10, useButton, cancelButton);

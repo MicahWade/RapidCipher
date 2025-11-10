@@ -72,6 +72,7 @@ public class MainGui extends Application {
     public MainGui() {
         instance = this;
         this.themeManager = new ThemeManager();
+        themeManager.loadThemePreference();
         this.dbConfig = ConfigManager.loadConfig();
         loginData = FXCollections.observableArrayList();
     }
@@ -80,7 +81,6 @@ public class MainGui extends Application {
         return instance;
     }
     
-    // --- ADDED GETTERS FOR GUIBUILDER ---
     public ConfigManager.DbConfig getDbConfig() {
         return this.dbConfig;
     }
@@ -88,7 +88,6 @@ public class MainGui extends Application {
     public Label getStatusLabel() {
         return this.statusLabel;
     }
-    // --- END ADDED GETTERS ---
 
     private void updateAllStyles() {
         root.setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + "; -fx-background-radius: 20;");
@@ -130,7 +129,6 @@ public class MainGui extends Application {
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
-        themeManager.loadThemePreference();
 
         AuthManager authManager = new AuthManager(themeManager);
 
@@ -169,11 +167,9 @@ public class MainGui extends Application {
         loadingStage.initModality(Modality.APPLICATION_MODAL);
         loadingStage.show();
 
-        // --- 2. Run connection logic on a background thread ---
         Task<Database> connectTask = new Task<>() {
             @Override
             protected Database call() throws Exception {
-                // This runs on the background thread
                 Callable<Database> dbCallable = () -> new Database(dbConfig);
                 ExecutorService executor = Executors.newSingleThreadExecutor();
                 Future<Database> future = executor.submit(dbCallable);
@@ -183,8 +179,8 @@ public class MainGui extends Application {
                     Database db = future.get(15, TimeUnit.SECONDS);
                     return db;
                 } catch (Exception e) {
-                    future.cancel(true); // Stop the task if it's still running
-                    throw e; // Re-throw the exception to be caught by task.setOnFailed
+                    future.cancel(true);
+                    throw e;
                 } finally {
                     executor.shutdown();
                 }
@@ -192,19 +188,16 @@ public class MainGui extends Application {
         };
 
         connectTask.setOnSucceeded(e -> {
-            // Connection successful
             database = connectTask.getValue();
             loadingStage.close();
-            buildAndShowMainUI(primaryStage); // Build UI now that we have a DB
+            buildAndShowMainUI(primaryStage); 
         });
 
         connectTask.setOnFailed(e -> {
-            // Connection failed (timeout or other error)
             loadingStage.close();
             Throwable error = connectTask.getException();
             error.printStackTrace();
 
-            // --- Fallback Logic ---
             if (!"SQLITE".equalsIgnoreCase(dbConfig.dbType())) {
                 themeManager.showErrorAlert("Remote Database Failed",
                         "Could not connect to " + dbConfig.dbType() + ": " + error.getMessage() + "\n\n" +
@@ -215,11 +208,9 @@ public class MainGui extends Application {
                     database = new Database(sqliteConfig); // This connection should be fast
                     this.dbConfig = sqliteConfig;
                     
-                    // Fallback succeeded, show main UI
                     buildAndShowMainUI(primaryStage); 
 
                 } catch (Exception sqliteEx) {
-                    // Fallback failed
                     sqliteEx.printStackTrace();
                     themeManager.showErrorAlert("Fatal Error",
                             "Failed to connect to remote database AND failed to fall back to SQLite.\n" +
@@ -228,7 +219,6 @@ public class MainGui extends Application {
                     Platform.exit();
                 }
             } else {
-                // SQLite itself failed
                 themeManager.showErrorAlert("Database Connection Failed",
                         "Could not connect to the default SQLite database: " + error.getMessage() + "\n" +
                         "Please check file permissions in your Documents/RapidCipher folder.\n" +
@@ -240,10 +230,6 @@ public class MainGui extends Application {
         new Thread(connectTask).start();
     }
     
-    /**
-     * This method contains all the logic to build the main UI,
-     * to be called *after* a database connection is successfully established.
-     */
     private void buildAndShowMainUI(Stage primaryStage) {
         primaryStage.setTitle("Rapid Cipher");
         primaryStage.initStyle(StageStyle.TRANSPARENT);
@@ -348,7 +334,6 @@ public class MainGui extends Application {
         primaryStage.setMinWidth(800);
         primaryStage.setMinHeight(600);
         
-        // Handle window close request (e.g., Alt+F4)
         primaryStage.setOnCloseRequest(e -> {
             if (database != null) {
                 database.closeConnection();
@@ -380,7 +365,6 @@ public class MainGui extends Application {
         }
         primaryStage.close();
         
-        // Restart the application logic
         Platform.runLater(() -> {
             try {
                 new MainGui().start(new Stage());
@@ -398,7 +382,6 @@ public class MainGui extends Application {
 
         loginData.clear();
         try {
-            // REFACTORED: Use getAllLoginEntries which returns a List and works for all drivers
             List<LoginEntry> entries = database.getAllLoginEntries(MasterPassword.getKey());
             loginData.setAll(entries);
             
@@ -426,7 +409,6 @@ public class MainGui extends Application {
             return;
         }
 
-        // REFACTORED: newId is now a String
         String newId = database.createLogin(name, username, password, url, notes);
 
         if (newId != null && !newId.isEmpty()) {
@@ -454,7 +436,6 @@ public class MainGui extends Application {
             return;
         }
         
-        // REFACTORED: login.getId() is now a String
         boolean success = database.deleteLogin(login.getId());
         if (success) {
             statusLabel.setText("Login deleted successfully.");
@@ -469,7 +450,6 @@ public class MainGui extends Application {
 
     void saveDbSettings(ConfigManager.DbConfig newConfig, boolean isMigrationChecked, Label restartLabel) {
         
-        // New Migration Logic
         if (isMigrationChecked) {
             if (database == null) {
                  themeManager.showErrorAlert("Migration Failed", "Cannot migrate data, source database is not connected.");
@@ -519,8 +499,7 @@ public class MainGui extends Application {
         this.dbConfig = ConfigManager.loadConfig();
         restartLabel.setVisible(true);
         statusLabel.setText("Settings saved. Please restart.");
-        // ***FIXED***: Completed the incomplete setStyle line
         statusLabel.setStyle("-fx-text-fill: " + themeManager.getCurrentSuccessColor() + ";");
-    } // ***FIXED***: Added missing brace for method
+    }
 
-} // ***FIXED***: Added missing brace for class
+}

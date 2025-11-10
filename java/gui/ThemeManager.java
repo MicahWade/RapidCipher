@@ -236,16 +236,24 @@ public class ThemeManager {
         lightInnerShadow.setOffsetY(-2);
         lightInnerShadow.setInput(darkInnerShadow);
 
-        String baseStyle = "-fx-background-color: " + currentControlInnerBase + ";" +
-                         "-fx-background-radius: 10;" +
-                         "-fx-text-fill: " + currentTextColor + ";";
+        // [FIX] We will build the style differently for TextArea
+        String baseStyle;
 
         if (control instanceof TextArea) {
-            baseStyle += "-fx-control-inner-background: " + currentControlInnerBase + ";";
+            // For TextArea, we set the colors for the inner content area
+            baseStyle = "-fx-background-color: " + currentControlInnerBase + ";" +
+                      "-fx-background-radius: 10;" +
+                      "-fx-prompt-text-fill: " + currentMutedTextColor + "; " + // Style prompt text
+                      "-fx-control-inner-background: " + currentControlInnerBase + "; " +
+                      "-fx-text-fill: " + currentTextColor + ";"; // Style content text
+        } else {
+            // For TextField/PasswordField, the original logic is fine.
+            baseStyle = "-fx-background-color: " + currentControlInnerBase + ";" +
+                      "-fx-background-radius: 10;" +
+                      "-fx-text-fill: " + currentTextColor + ";";
         }
 
         control.setStyle(baseStyle);
-        control.setEffect(lightInnerShadow);
         if (control instanceof TextField) {
             control.setPrefHeight(35);
         }

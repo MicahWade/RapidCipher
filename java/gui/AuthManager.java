@@ -2,6 +2,7 @@ package gui;
 
 import javafx.application.Platform;
 import javafx.scene.control.*;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -48,9 +49,20 @@ public class AuthManager {
         Dialog<String> dialog = new Dialog<>();
         dialog.initStyle(StageStyle.TRANSPARENT);
         dialog.getDialogPane().getScene().setFill(Color.TRANSPARENT);
-        // MODIFIED: Removed -fx-background-radius: 15;
         dialog.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + ";");
         dialog.getDialogPane().setEffect(themeManager.getLightOuterShadow());
+
+        Platform.runLater(() -> {
+            Region header = (Region) dialog.getDialogPane().lookup(".header-panel");
+            if (header != null) {
+                header.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
+
+                Label headerText = (Label) header.lookup(".header-panel .label");
+                if (headerText != null) {
+                    headerText.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+                }
+            }
+        });
 
         dialog.setTitle("Login");
         dialog.setHeaderText("Enter your master password for RapidCipher.");
@@ -130,6 +142,18 @@ public class AuthManager {
         // MODIFIED: Removed -fx-background-radius: 15;
         dialog.getDialogPane().setStyle("-fx-background-color: " + themeManager.getCurrentBaseSemiTransparent() + ";");
         dialog.getDialogPane().setEffect(themeManager.getLightOuterShadow());
+        
+        Platform.runLater(() -> {
+            Region header = (Region) dialog.getDialogPane().lookup(".header-panel");
+            if (header != null) {
+                header.setStyle("-fx-background-color: " + themeManager.getCurrentBaseColor() + ";");
+
+                Label headerText = (Label) header.lookup(".header-panel .label");
+                if (headerText != null) {
+                    headerText.setStyle("-fx-text-fill: " + themeManager.getCurrentTextColor() + ";");
+                }
+            }
+        });
         
         dialog.setTitle("Welcome to RapidCipher");
         dialog.setHeaderText("Please create a new master password.");
