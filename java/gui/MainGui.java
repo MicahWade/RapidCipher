@@ -140,21 +140,65 @@ public class MainGui extends Application {
             return;
         }
 
+        // --- MODIFIED DATABASE CONNECTION LOGIC ---
         try {
             database = new Database(dbConfig);
         } catch (Exception e) {
             e.printStackTrace();
-            themeManager.showErrorAlert("Database Connection Failed",
-                    "Could not connect to the database: " + e.getMessage() + "\n" +
-                            "Please check your settings in config.properties or the Settings menu. " +
-                            "If you just changed settings, please restart.");
-            // Don't exit, allow user to access settings
+            
+            // Check if the failed config was a remote database
+            if (!"SQLITE".equalsIgnoreCase(dbConfig.dbType())) {
+                
+                // 1. Inform the user of the fallback
+                themeManager.showErrorAlert("Remote Database Failed",
+                        "Could not connect to " + dbConfig.dbType() + ": " + e.getMessage() + "\n\n" +
+                        "Reverting to the default local SQLite database.");
+                
+                try {
+                    // 2. Create a default SQLite config
+                    // We mimic the defaults from ConfigManager.loadConfig()
+                    ConfigManager.DbConfig sqliteConfig = new ConfigManager.DbConfig(
+                        "SQLITE", 
+                        "",          // host
+                        "3306",      // port (ignored)
+                        "rapidcipher", // dbName (ignored)
+                        "",          // user
+                        ""           // pass
+                    );
+                    
+                    // 3. Try to connect to SQLite
+                    database = new Database(sqliteConfig);
+                    
+                    // 4. Update the app's active config to reflect the fallback
+                    this.dbConfig = sqliteConfig;
+
+                } catch (Exception sqliteEx) {
+                    // 5. If SQLite ALSO fails, it's a fatal error.
+                    sqliteEx.printStackTrace();
+                    themeManager.showErrorAlert("Fatal Error",
+                            "Failed to connect to remote database AND failed to fall back to SQLite.\n" +
+                            "Error: " + sqliteEx.getMessage() + "\n" +
+                            "The application will now exit.");
+                    Platform.exit();
+                    return; // Stop the start method
+                }
+                
+            } else {
+                // The failure was with SQLite itself. This is also fatal.
+                themeManager.showErrorAlert("Database Connection Failed",
+                        "Could not connect to the default SQLite database: " + e.getMessage() + "\n" +
+                        "Please check file permissions in your Documents/RapidCipher folder.\n" +
+                        "The application will now exit.");
+                Platform.exit();
+                return; // Stop the start method
+            }
         }
+        // --- END MODIFIED LOGIC ---
 
         primaryStage.setTitle("Rapid Cipher");
         primaryStage.initStyle(StageStyle.TRANSPARENT);
 
-        loadDataFromDatabase(); // Try to load, might be empty if DB connection failed
+        loadDataFromDatabase(); // Try to load, will now use SQLite if remote failed
 
         loginListView = new ListView<>();
         loginListView.setItems(loginData);
@@ -401,10 +445,10 @@ public class MainGui extends Application {
                 System.out.println("Writing " + entries.size() + " entries to destination...");
                 for (LoginEntry entry : entries) {
                     destDb.createLogin(
-                        entry.getName(), 
-                        entry.getUsername(), 
-                        entry.getPassword(), 
-                        entry.getUrl(), 
+                        entry.getName(),
+                        entry.getUsername(),
+                        entry.getPassword(),
+                        entry.getUrl(),
                         entry.getNotes()
                     );
                 }
